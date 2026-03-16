@@ -1,0 +1,8 @@
+MediaSDK/
+sdk/
+CameraSDK/
+*.dll
+*.zip
+*.h5
+captures/
+__pycache__/
