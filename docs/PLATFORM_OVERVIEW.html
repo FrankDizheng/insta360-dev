@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>大模型驱动的机械臂智能执行平台</title>
+<style>
+  :root {
+    --blue: #2563eb; --blue-light: #eff6ff; --blue-mid: #dbeafe;
+    --green: #16a34a; --green-light: #f0fdf4;
+    --purple: #7c3aed; --purple-light: #f5f3ff;
+    --orange: #ea580c; --orange-light: #fff7ed;
+    --gray: #475569; --gray-light: #f8fafc;
+    --border: #e2e8f0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; color: #1e293b; line-height: 1.8; background: #fff; }
+  h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: #94a3b8; margin-bottom: 40px; }
+  h2 { font-size: 20px; font-weight: 700; margin: 48px 0 20px; padding-bottom: 8px; border-bottom: 2px solid var(--blue); color: var(--blue); }
+  h3 { font-size: 16px; font-weight: 600; margin: 28px 0 12px; color: #334155; }
+  p { margin: 10px 0; font-size: 15px; }
+  ul { margin: 10px 0 10px 20px; font-size: 15px; }
+  li { margin: 4px 0; }
+  strong { color: #0f172a; }
+  blockquote { border-left: 4px solid var(--blue); background: var(--blue-light); margin: 16px 0; padding: 12px 20px; border-radius: 0 8px 8px 0; font-size: 14px; color: #475569; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; }
+  th { background: #f1f5f9; font-weight: 600; text-align: left; padding: 10px 14px; border: 1px solid var(--border); color: #334155; }
+  td { padding: 10px 14px; border: 1px solid var(--border); }
+  tr:hover td { background: #f8fafc; }
+
+  .arch-stack { margin: 24px 0; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .arch-layer { padding: 18px 24px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+  .arch-layer:last-child { border-bottom: none; }
+  .arch-layer .layer-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .arch-layer .layer-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .arch-layer .tag { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; background: rgba(255,255,255,0.2); color: #fff; }
+  .layer-scenario { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; }
+  .layer-policy { background: linear-gradient(135deg, #6d28d9, #8b5cf6); color: #fff; }
+  .layer-data { background: linear-gradient(135deg, #0f766e, #14b8a6); color: #fff; }
+  .layer-hw { background: linear-gradient(135deg, #9a3412, #f97316); color: #fff; }
+
+  .flow-vertical { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 28px 0; }
+  .flow-node { background: #fff; border: 2px solid var(--blue); border-radius: 10px; padding: 14px 28px; text-align: center; position: relative; min-width: 280px; }
+  .flow-node .node-title { font-weight: 700; font-size: 15px; color: var(--blue); }
+  .flow-node .node-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .flow-node.purple { border-color: var(--purple); }
+  .flow-node.purple .node-title { color: var(--purple); }
+  .flow-node.green { border-color: var(--green); }
+  .flow-node.green .node-title { color: var(--green); }
+  .flow-node.orange { border-color: var(--orange); }
+  .flow-node.orange .node-title { color: var(--orange); }
+  .flow-arrow { width: 2px; height: 28px; background: var(--blue); position: relative; }
+  .flow-arrow::after { content: "▼"; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--blue); }
+  .flow-row { display: flex; align-items: center; gap: 16px; }
+  .flow-side { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #64748b; white-space: nowrap; }
+  .flow-side-arrow { font-size: 18px; color: #94a3b8; }
+
+  .steps { margin: 24px 0; }
+  .step { display: flex; gap: 16px; margin-bottom: 0; padding: 16px 0; position: relative; }
+  .step:not(:last-child)::before { content: ""; position: absolute; left: 19px; top: 44px; bottom: 0; width: 2px; background: var(--border); }
+  .step-num { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 700; font-size: 15px; color: #1e293b; }
+  .step-desc { font-size: 14px; color: #64748b; margin-top: 2px; }
+
+  .compare-table th:first-child { width: 160px; }
+  .compare-table td:nth-child(2) { color: #dc2626; background: #fef2f2; }
+  .compare-table td:nth-child(3) { color: #16a34a; background: #f0fdf4; font-weight: 500; }
+
+  .metric-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  .metric-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .metric-card .metric-value { font-size: 24px; font-weight: 700; color: var(--blue); }
+  .metric-card .metric-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  .force-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .force-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; border-left: 4px solid; }
+  .force-card .fc-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .force-card .fc-row { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; margin: 2px 0; }
+  .force-card .fc-val { font-weight: 600; color: #334155; }
+  .force-card .fc-examples { font-size: 12px; color: #94a3b8; margin-top: 6px; font-style: italic; }
+  .fc-fragile { border-left-color: #ef4444; } .fc-fragile .fc-title { color: #ef4444; }
+  .fc-normal { border-left-color: #3b82f6; } .fc-normal .fc-title { color: #3b82f6; }
+  .fc-hard { border-left-color: #475569; } .fc-hard .fc-title { color: #475569; }
+  .fc-soft { border-left-color: #8b5cf6; } .fc-soft .fc-title { color: #8b5cf6; }
+
+  .scenario-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .scenario-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .scenario-card .sc-icon { font-size: 24px; margin-bottom: 6px; }
+  .scenario-card .sc-title { font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 4px; }
+  .scenario-card .sc-desc { font-size: 13px; color: #64748b; }
+  .scenario-card .sc-tag { display: inline-block; margin-top: 8px; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--blue-light); color: var(--blue); font-weight: 500; }
+
+  .adv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .adv-item { display: flex; gap: 12px; padding: 14px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--border); }
+  .adv-num { width: 32px; height: 32px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .adv-text .adv-title { font-weight: 700; font-size: 14px; color: #1e293b; }
+  .adv-text .adv-desc { font-size: 13px; color: #64748b; }
+
+  .roadmap { margin: 20px 0; }
+  .rm-item { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 8px; margin: 4px 0; }
+  .rm-item:nth-child(odd) { background: #f8fafc; }
+  .rm-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; min-width: 80px; text-align: center; }
+  .rm-done { background: #dcfce7; color: #16a34a; }
+  .rm-wip { background: #fef3c7; color: #d97706; }
+  .rm-plan { background: #f1f5f9; color: #64748b; }
+  .rm-phase { font-weight: 700; font-size: 14px; color: #334155; min-width: 80px; }
+  .rm-desc { font-size: 14px; color: #64748b; flex: 1; }
+
+  .deploy-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .deploy-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .deploy-card .dc-icon { font-size: 28px; margin-bottom: 8px; }
+  .deploy-card .dc-title { font-weight: 700; font-size: 14px; color: #1e293b; }
+  .deploy-card .dc-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { padding: 20px 16px 40px; max-width: 100%; }
+    h2 { break-after: avoid; }
+    h3 { break-after: avoid; }
+    table, .metric-cards, .force-cards, .scenario-cards, .adv-grid, .deploy-cards, .arch-stack, .steps, .flow-vertical { break-inside: avoid; }
+    tr { break-inside: avoid; }
+    .arch-layer { background: inherit !important; }
+    .layer-scenario { background: linear-gradient(135deg, #1e40af, #3b82f6) !important; }
+    .layer-policy { background: linear-gradient(135deg, #6d28d9, #8b5cf6) !important; }
+    .layer-data { background: linear-gradient(135deg, #0f766e, #14b8a6) !important; }
+    .layer-hw { background: linear-gradient(135deg, #9a3412, #f97316) !important; }
+    .arch-layer .tag { background: rgba(255,255,255,0.2) !important; }
+    .metric-card { background: #f8fafc !important; }
+    .force-card { background: #fff !important; }
+    .scenario-card { background: #f8fafc !important; }
+    .adv-item { background: #f8fafc !important; }
+    .adv-num { background: var(--blue) !important; }
+    .rm-done { background: #dcfce7 !important; }
+    .rm-wip { background: #fef3c7 !important; }
+    .rm-plan { background: #f1f5f9 !important; }
+    .rm-item:nth-child(odd) { background: #f8fafc !important; }
+    .compare-table td:nth-child(2) { background: #fef2f2 !important; }
+    .compare-table td:nth-child(3) { background: #f0fdf4 !important; }
+    th { background: #f1f5f9 !important; }
+    blockquote { background: var(--blue-light) !important; }
+    .deploy-card { background: #fff !important; }
+    .flow-node { background: #fff !important; }
+    hr { margin: 24px 0; }
+    @page { margin: 12mm 10mm; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<h1>大模型驱动的机械臂智能执行平台</h1>
+<p class="subtitle">技术方案概览 · v1.1 · 2026-03-13</p>
+
+<!-- 一、平台定位 -->
+<h2>一、平台定位</h2>
+<p>本平台是一套 <strong>"感知-决策-执行-学习" 闭环的机械臂智能基础设施</strong>，以视觉大模型和动作大模型为核心引擎，驱动机械臂在不同场景下自主完成操作任务。</p>
+<p>核心理念：<strong>不为每个任务写死规则，而是让大模型在场景中自主构建规则、持续优化策略。</strong></p>
+
+<div class="arch-stack">
+  <div class="arch-layer layer-scenario">
+    <div class="layer-title">场景层 Scenario</div>
+    <div class="layer-tags">
+      <span class="tag">物料分拣</span><span class="tag">精密装配</span><span class="tag">质检搬运</span><span class="tag">柔性操作</span><span class="tag">... 可扩展</span>
+    </div>
+  </div>
+  <div class="arch-layer layer-policy">
+    <div class="layer-title">策略引擎 Policy Engine</div>
+    <div class="layer-tags">
+      <span class="tag">视觉决策</span><span class="tag">动作生成</span><span class="tag">规则推理</span><span class="tag">技能库</span><span class="tag">异常处理</span>
+    </div>
+  </div>
+  <div class="arch-layer layer-data">
+    <div class="layer-title">数据与学习层 Data &amp; Learning</div>
+    <div class="layer-tags">
+      <span class="tag">Case 自动采集</span><span class="tag">大模型分析</span><span class="tag">策略微调</span><span class="tag">模型微调</span>
+    </div>
+  </div>
+  <div class="arch-layer layer-hw">
+    <div class="layer-title">硬件抽象层 Hardware Abstraction</div>
+    <div class="layer-tags">
+      <span class="tag">机械臂控制</span><span class="tag">视觉传感器</span><span class="tag">力/力矩传感</span><span class="tag">边缘计算</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 二、要解决的问题 -->
+<h2>二、要解决的问题</h2>
+<p>传统机械臂方案依赖人工编写固定规则和路径点，面临以下痛点：</p>
+<table class="compare-table">
+  <tr><th>痛点</th><th>传统方案</th><th>本平台方案</th></tr>
+  <tr><td><strong>新场景部署周期长</strong></td><td>每个场景重新编程，数周调试</td><td>自然语言描述任务，大模型自动构建逻辑</td></tr>
+  <tr><td><strong>环境变化难适应</strong></td><td>物体位置/姿态变化需重新标定</td><td>实时理解场景，动态调整决策</td></tr>
+  <tr><td><strong>异常处理依赖人工</strong></td><td>抓取失败需人工干预</td><td>闭环观察 + 自动修正</td></tr>
+  <tr><td><strong>经验难以沉淀</strong></td><td>调参经验在工程师个人手中</td><td>Case 自动采集 → 大模型分析 → 技能库沉淀</td></tr>
+  <tr><td><strong>迁移成本高</strong></td><td>A 场景的方案无法用于 B 场景</td><td>统一架构，新场景只需配置不需重开发</td></tr>
+  <tr><td><strong>力控不灵活</strong></td><td>固定力阈值，不同物体需反复调参</td><td>大模型根据物体材质/形状自适应输出力控策略</td></tr>
+</table>
+
+<hr>
+
+<!-- 三、核心能力 -->
+<h2>三、核心能力</h2>
+
+<h3>3.1 视觉理解</h3>
+<p>大模型直接"看"摄像头画面，理解场景中有什么、在哪里、处于什么状态：</p>
+<ul>
+  <li><strong>场景理解</strong>：识别物体种类、材质、颜色、大小、空间关系</li>
+  <li><strong>目标定位</strong>：输出目标位置与姿态</li>
+  <li><strong>状态判断</strong>：判断抓取是否成功、物体是否到位、是否存在异常</li>
+  <li><strong>2D→3D 映射</strong>：结合深度相机将图像坐标转换为机械臂工作空间坐标</li>
+</ul>
+
+<h3>3.2 智能决策</h3>
+<table>
+  <tr><th>能力</th><th>说明</th></tr>
+  <tr><td><strong>任务规划</strong></td><td>将自然语言指令（如"把蓝色瓶子放到左边箱子"）拆解为可执行的子任务序列</td></tr>
+  <tr><td><strong>逐步决策</strong></td><td>每一步拍照观察 → 判断当前状态 → 输出下一个动作</td></tr>
+  <tr><td><strong>力控策略推理</strong></td><td>根据目标物体的材质和形状，自动推理抓取力度、速度曲线和接近角度</td></tr>
+  <tr><td><strong>计划复用</strong></td><td>首次任务完整推理；成功后缓存为模板，后续同类任务直接复用</td></tr>
+  <tr><td><strong>异常自修复</strong></td><td>执行结果不符合预期时自动重新观察、调整策略</td></tr>
+</table>
+
+<h3>3.3 动作执行</h3>
+<p>端到端的动作大模型，直接从图像和语言指令生成关节级动作：</p>
+<ul>
+  <li>支持轻量级模型在边缘设备部署，满足实时性要求</li>
+  <li>支持从示教数据采集到模型微调的完整流程</li>
+  <li>不仅输出位置轨迹，还可输出各关节力矩参考值</li>
+</ul>
+
+<h3>3.4 自学习闭环</h3>
+
+<div style="display:flex; align-items:center; justify-content:center; gap:8px; margin:28px 0; flex-wrap:wrap;">
+  <div style="background:#fff; border:2px solid #2563eb; border-radius:10px; padding:12px 20px; text-align:center; font-weight:600; font-size:14px; color:#2563eb; min-width:100px;">任务执行</div>
+  <span style="font-size:20px; padding:0 6px; color:#2563eb;">→</span>
+  <div style="background:#fff; border:2px solid #0f766e; border-radius:10px; padding:12px 20px; text-align:center; font-weight:600; font-size:14px; color:#0f766e; min-width:100px;">Case 采集</div>
+  <span style="font-size:20px; padding:0 6px; color:#0f766e;">→</span>
+  <div style="background:#fff; border:2px solid #7c3aed; border-radius:10px; padding:12px 20px; text-align:center; font-weight:600; font-size:14px; color:#7c3aed; min-width:100px;">大模型分析</div>
+  <span style="font-size:20px; padding:0 6px; color:#7c3aed;">→</span>
+  <div style="background:#fff; border:2px solid #ea580c; border-radius:10px; padding:12px 20px; text-align:center; font-weight:600; font-size:14px; color:#ea580c; min-width:100px;">策略优化</div>
+  <span style="font-size:20px; padding:0 6px; color:#ea580c;">→</span>
+  <div style="background:#fff; border:2px solid #16a34a; border-radius:10px; padding:12px 20px; text-align:center; font-weight:600; font-size:14px; color:#16a34a; min-width:100px;">技能库更新</div>
+  <span style="font-size:20px; padding:0 6px; color:#16a34a;">↩</span>
+</div>
+
+<table>
+  <tr><th>阶段</th><th>说明</th></tr>
+  <tr><td><strong>采集</strong></td><td>每次执行自动保存图像序列、动作日志、力传感数据、执行结果</td></tr>
+  <tr><td><strong>分析</strong></td><td>定期将失败/异常 case 批量提交给大模型分析</td></tr>
+  <tr><td><strong>策略调整</strong></td><td>根据分析结论更新决策规则、力控参数、识别阈值</td></tr>
+  <tr><td><strong>模型微调</strong></td><td>累积足够数据后对动作模型做 fine-tuning</td></tr>
+  <tr><td><strong>技能沉淀</strong></td><td>成熟方案封装为 Skill，支持跨场景复用</td></tr>
+</table>
+
+<hr>
+
+<!-- 四、系统架构 -->
+<h2>四、系统架构</h2>
+
+<h3>4.1 整体流程</h3>
+
+<div class="flow-vertical">
+  <div class="flow-node" style="background:var(--blue-light); border-color:var(--blue);">
+    <div class="node-title">自然语言指令 / 场景配置</div>
+    <div class="node-desc">"把红色零件放到A区"</div>
+  </div>
+  <div class="flow-arrow"></div>
+  <div class="flow-node">
+    <div class="node-title">任务规划</div>
+    <div class="node-desc">拆解为子任务：识别 → 定位 → 抓取 → 搬运 → 释放</div>
+  </div>
+  <div class="flow-arrow" style="background:var(--purple);"></div>
+  <div class="flow-row">
+    <div class="flow-node purple" style="flex:1;">
+      <div class="node-title">视觉决策</div>
+      <div class="node-desc">场景理解 + 目标定位 → 动作 + 力控指令</div>
+    </div>
+    <span class="flow-side-arrow">⟷</span>
+    <div class="flow-side">RGB-D 相机<br>+ 力传感器</div>
+  </div>
+  <div class="flow-arrow" style="background:var(--green);"></div>
+  <div class="flow-node green">
+    <div class="node-title">动作生成</div>
+    <div class="node-desc">高层指令 → 关节级轨迹 + 力矩曲线</div>
+  </div>
+  <div class="flow-arrow" style="background:var(--orange);"></div>
+  <div class="flow-row">
+    <div class="flow-node orange" style="flex:1;">
+      <div class="node-title">机械臂执行（位置 + 力混合控制）</div>
+    </div>
+    <span class="flow-side-arrow">→</span>
+    <div class="flow-side">结果反馈<br>→ 下一轮观察</div>
+  </div>
+  <div class="flow-arrow" style="background:#64748b;"></div>
+  <div class="flow-node" style="border-color:#64748b; background:#f8fafc;">
+    <div class="node-title" style="color:#64748b;">数据沉淀</div>
+    <div class="node-desc">定期分析 → 模型/策略迭代</div>
+  </div>
+</div>
+
+<h3>4.2 核心设计</h3>
+
+<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin:20px 0;">
+  <div style="background:var(--blue-light); border:1px solid #bfdbfe; border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:28px; margin-bottom:8px;">🔌</div>
+    <div style="font-weight:700; font-size:14px; color:#1e40af; margin-bottom:6px;">标准化服务接口</div>
+    <div style="font-size:13px; color:#3b82f6;">AI 大脑与各子系统通过标准协议通信，模型可随时切换，不锁定供应商</div>
+  </div>
+  <div style="background:var(--green-light); border:1px solid #bbf7d0; border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:28px; margin-bottom:8px;">⚡</div>
+    <div style="font-weight:700; font-size:14px; color:#15803d; margin-bottom:6px;">多级加速策略</div>
+    <div style="font-size:13px; color:#16a34a;">智能缓存 + 分级推理，已识别物料毫秒级决策，仅全新场景需完整推理</div>
+  </div>
+  <div style="background:var(--orange-light); border:1px solid #fed7aa; border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:28px; margin-bottom:8px;">🔧</div>
+    <div style="font-weight:700; font-size:14px; color:#c2410c; margin-bottom:6px;">硬件抽象层</div>
+    <div style="font-size:13px; color:#ea580c;">屏蔽底层差异，已适配主流协作臂，新臂型接入 &lt; 1 周</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 五、性能指标 -->
+<h2>五、性能指标</h2>
+
+<h3>5.1 响应时延</h3>
+
+<div class="metric-cards">
+  <div class="metric-card">
+    <div class="metric-value">&lt; 100ms</div>
+    <div class="metric-label">稳态平均决策延迟</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">90%+</div>
+    <div class="metric-label">智能缓存命中率</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">1 kHz</div>
+    <div class="metric-label">伺服控制频率</div>
+  </div>
+</div>
+
+<table>
+  <tr><th>场景</th><th>端到端时延</th><th>说明</th></tr>
+  <tr><td><strong>已识别物料（稳态）</strong></td><td style="color:#16a34a; font-weight:700;">&lt; 100 ms</td><td>智能缓存命中，约占日常 90%+</td></tr>
+  <tr><td><strong>同类物料有变化</strong></td><td style="color:#2563eb; font-weight:700;">&lt; 200 ms</td><td>相似度匹配后微调参数</td></tr>
+  <tr><td><strong>全新物料/场景</strong></td><td style="color:#d97706; font-weight:700;">3–5 s</td><td>完整推理，结果自动存入缓存</td></tr>
+</table>
+
+<blockquote>产线冷启动时每种新品类首次需完整推理（3–5s），之后自动缓存。品类稳定后日常运行平均决策延迟 <strong>&lt; 100ms</strong>。</blockquote>
+
+<h3>5.2 力控能力</h3>
+
+<div class="metric-cards">
+  <div class="metric-card">
+    <div class="metric-value">±0.1 N</div>
+    <div class="metric-label">力传感精度</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">0.5–50 N</div>
+    <div class="metric-label">抓取力范围</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">&lt; 5 ms</div>
+    <div class="metric-label">碰撞检测响应</div>
+  </div>
+</div>
+
+<p><strong>自适应力控策略</strong> — 大模型根据物体材质自动匹配：</p>
+
+<div class="force-cards">
+  <div class="force-card fc-fragile">
+    <div class="fc-title">脆弱 / 易碎</div>
+    <div class="fc-row"><span>抓取力</span><span class="fc-val">1–3 N</span></div>
+    <div class="fc-row"><span>接近速度</span><span class="fc-val">慢</span></div>
+    <div class="fc-examples">玻璃瓶、鸡蛋、芯片</div>
+  </div>
+  <div class="force-card fc-normal">
+    <div class="fc-title">普通 / 塑料</div>
+    <div class="fc-row"><span>抓取力</span><span class="fc-val">5–15 N</span></div>
+    <div class="fc-row"><span>接近速度</span><span class="fc-val">中</span></div>
+    <div class="fc-examples">塑料件、包装盒</div>
+  </div>
+  <div class="force-card fc-hard">
+    <div class="fc-title">坚硬 / 金属</div>
+    <div class="fc-row"><span>抓取力</span><span class="fc-val">15–40 N</span></div>
+    <div class="fc-row"><span>接近速度</span><span class="fc-val">快</span></div>
+    <div class="fc-examples">金属零件、工具</div>
+  </div>
+  <div class="force-card fc-soft">
+    <div class="fc-title">柔性 / 可变形</div>
+    <div class="fc-row"><span>抓取力</span><span class="fc-val">2–8 N</span></div>
+    <div class="fc-row"><span>接近速度</span><span class="fc-val">慢</span></div>
+    <div class="fc-examples">织物、线缆、软管</div>
+  </div>
+</div>
+
+<h3>5.3 吞吐量</h3>
+<div class="metric-cards">
+  <div class="metric-card">
+    <div class="metric-value">3–5s</div>
+    <div class="metric-label">简单分拣（缓存命中）</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">6–10s</div>
+    <div class="metric-label">常规抓放</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">15–30s</div>
+    <div class="metric-label">复杂装配（每步闭环）</div>
+  </div>
+</div>
+
+<h3>5.4 定位精度</h3>
+<table>
+  <tr><th>指标</th><th>参数</th></tr>
+  <tr><td>空间定位精度</td><td>±1–3 mm</td></tr>
+  <tr><td>机械臂重复定位精度</td><td>±0.02–0.05 mm（工业级）</td></tr>
+</table>
+
+<hr>
+
+<!-- 六、场景自适应 -->
+<h2>六、场景自适应</h2>
+
+<h3>6.1 新场景接入流程</h3>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num" style="background:#2563eb;">1</div>
+    <div class="step-content">
+      <div class="step-title">场景描述（自然语言）</div>
+      <div class="step-desc">"从传送带上识别不同颜色的瓶子，分别放入对应的回收箱"</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num" style="background:#7c3aed;">2</div>
+    <div class="step-content">
+      <div class="step-title">自动拆解</div>
+      <div class="step-desc">识别颜色 → 确定目标箱 → 抓取 → 搬运 → 释放</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num" style="background:#0f766e;">3</div>
+    <div class="step-content">
+      <div class="step-title">构建初始规则</div>
+      <div class="step-desc">拍照 → 理解场景 → 推理力控策略 → 首次执行计划</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num" style="background:#ea580c;">4</div>
+    <div class="step-content">
+      <div class="step-title">首次执行 + 闭环观察</div>
+      <div class="step-desc">逐步执行，每步拍照 + 力反馈确认</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num" style="background:#16a34a;">5</div>
+    <div class="step-content">
+      <div class="step-title">缓存 + 技能沉淀</div>
+      <div class="step-desc">成功方案固化为模板，后续直接复用</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num" style="background:#475569;">6</div>
+    <div class="step-content">
+      <div class="step-title">持续优化</div>
+      <div class="step-desc">失败 case 自动收集 → 大模型分析 → 微调策略</div>
+    </div>
+  </div>
+</div>
+
+<h3>6.2 典型应用场景</h3>
+
+<div class="scenario-cards">
+  <div class="scenario-card">
+    <div class="sc-icon">📦</div>
+    <div class="sc-title">物料分拣</div>
+    <div class="sc-desc">按颜色/大小/类型将物料分入不同容器</div>
+    <div class="sc-tag">视觉分类 + 快速节拍</div>
+  </div>
+  <div class="scenario-card">
+    <div class="sc-icon">🔧</div>
+    <div class="sc-title">精密装配</div>
+    <div class="sc-desc">插接、对齐、拧紧等精密操作</div>
+    <div class="sc-tag">力控柔顺 + 闭环修正</div>
+  </div>
+  <div class="scenario-card">
+    <div class="sc-icon">🔍</div>
+    <div class="sc-title">质检搬运</div>
+    <div class="sc-desc">视觉检测缺陷 → 不良品分流</div>
+    <div class="sc-tag">缺陷检测 + 分拣决策</div>
+  </div>
+  <div class="scenario-card">
+    <div class="sc-icon">🧵</div>
+    <div class="sc-title">柔性物体操作</div>
+    <div class="sc-desc">线缆整理、织物折叠等</div>
+    <div class="sc-tag">自适应力控 + 形变感知</div>
+  </div>
+  <div class="scenario-card">
+    <div class="sc-icon">🤝</div>
+    <div class="sc-title">人机协作</div>
+    <div class="sc-desc">响应语音/手势指令协同作业</div>
+    <div class="sc-tag">自然语言交互 + 安全力控</div>
+  </div>
+  <div class="scenario-card">
+    <div class="sc-icon">🧪</div>
+    <div class="sc-title">实验室自动化</div>
+    <div class="sc-desc">移液、试管搬运、样本处理</div>
+    <div class="sc-tag">高精度 + 防污染</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 七、典型问题 -->
+<h2>七、典型问题：生产中物料形态变化怎么办？</h2>
+
+<p>传统方案依赖固定模板匹配，物料外形一变就得停线重新编程调参。本平台基于大模型语义理解，天然具备形态变化适应能力。</p>
+
+<div style="background:linear-gradient(135deg,#fef3c7,#fff7ed); border:1px solid #fcd34d; border-radius:12px; padding:20px 24px; margin:20px 0;">
+  <div style="font-weight:700; font-size:15px; color:#92400e; margin-bottom:8px;">场景举例</div>
+  <div style="font-size:14px; color:#78350f;">生产线上的瓶子从圆瓶换成了方瓶，或者装箱的盒子尺寸变了。</div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0;">
+  <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:20px;">
+    <div style="font-weight:700; color:#dc2626; font-size:14px; margin-bottom:10px;">❌ 传统方案</div>
+    <div style="font-size:14px; color:#7f1d1d; line-height:1.8;">停线 → 工程师重新标定模板 → 调整抓取点和力控参数 → 反复测试 → 恢复生产<br><strong>耗时数小时到数天</strong></div>
+  </div>
+  <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:20px;">
+    <div style="font-weight:700; color:#16a34a; font-size:14px; margin-bottom:10px;">✅ 本平台</div>
+    <div style="font-size:14px; color:#14532d; line-height:1.8;">自动识别新物料形态 → 推理新抓取策略 → 首次闭环确认 → 缓存模板<br><strong>全程无需人工干预</strong></div>
+  </div>
+</div>
+
+<h3>不同变化程度的应对</h3>
+<table>
+  <tr><th>变化程度</th><th>示例</th><th>停线时间</th></tr>
+  <tr><td><strong>小变化</strong></td><td>同类瓶子换尺寸（500ml→330ml）</td><td style="color:#16a34a; font-weight:700;">0</td></tr>
+  <tr><td><strong>中等变化</strong></td><td>换品类（圆瓶→方瓶）</td><td style="color:#16a34a; font-weight:700;">0</td></tr>
+  <tr><td><strong>大变化</strong></td><td>全新产品线上线</td><td style="color:#d97706; font-weight:700;">&lt; 5 分钟</td></tr>
+</table>
+
+<div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:20px 24px; margin:16px 0;">
+  <p style="font-size:14px; color:#1e40af; margin:0;">核心区别：传统视觉方案依赖 <strong>模板匹配</strong>（模板变了就废了），本平台依赖 <strong>语义理解</strong>（理解的是"这是一个瓶子，要放进那个箱子"这个语义，不受具体外形约束）。</p>
+</div>
+
+<hr>
+
+<!-- 八、硬件生态 -->
+<h2>八、硬件生态</h2>
+
+<h3>8.1 已适配硬件</h3>
+<table>
+  <tr><th>组件</th><th>推荐型号</th><th>说明</th></tr>
+  <tr><td>机械臂</td><td>UR5e/UR10e、JAKA Zu 7、越疆 CR、FANUC CRX</td><td>6/7 DoF 协作臂，±0.02–0.05 mm</td></tr>
+  <tr><td>末端执行器</td><td>Robotiq 2F-85/140、大寰 PGC、OnRobot RG2/RG6</td><td>自适应电动夹爪</td></tr>
+  <tr><td>力/力矩传感器</td><td>ATI Gamma/Mini45、坤维 KWR75</td><td>六维力传感，1 kHz 采样</td></tr>
+  <tr><td>视觉</td><td>Intel RealSense D435i/D455、海康 MV-CS</td><td>工业 RGB-D 相机</td></tr>
+  <tr><td>边缘计算</td><td>NVIDIA Jetson Orin、研华 MIC-770</td><td>边缘推理 + 实时控制</td></tr>
+</table>
+
+<h3>8.2 部署模式</h3>
+
+<div class="deploy-cards">
+  <div class="deploy-card">
+    <div class="dc-icon">☁️</div>
+    <div class="dc-title">云端 API</div>
+    <div class="dc-desc">调用成熟大模型 API，按需付费<br>适用于初期验证、中小规模</div>
+  </div>
+  <div class="deploy-card">
+    <div class="dc-icon">⚡</div>
+    <div class="dc-title">边缘 + 云端混合</div>
+    <div class="dc-desc">常规决策边缘处理，复杂场景打云端<br>适用于生产部署</div>
+  </div>
+  <div class="deploy-card">
+    <div class="dc-icon">🏢</div>
+    <div class="dc-title">全私有化</div>
+    <div class="dc-desc">自建 GPU 集群，数据不出厂<br>适用于大规模 / 数据敏感场景</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 九、核心优势 -->
+<h2>九、核心优势</h2>
+
+<div class="adv-grid">
+  <div class="adv-item">
+    <div class="adv-num">1</div>
+    <div class="adv-text">
+      <div class="adv-title">场景无关</div>
+      <div class="adv-desc">不针对特定任务编程，新场景通过自然语言描述即可接入</div>
+    </div>
+  </div>
+  <div class="adv-item">
+    <div class="adv-num">2</div>
+    <div class="adv-text">
+      <div class="adv-title">自适应力控</div>
+      <div class="adv-desc">大模型根据物体材质/形状自动推理力控策略，无需人工调参</div>
+    </div>
+  </div>
+  <div class="adv-item">
+    <div class="adv-num">3</div>
+    <div class="adv-text">
+      <div class="adv-title">持续进化</div>
+      <div class="adv-desc">每次执行产生数据 → 数据反哺模型 → 形成飞轮效应</div>
+    </div>
+  </div>
+  <div class="adv-item">
+    <div class="adv-num">4</div>
+    <div class="adv-text">
+      <div class="adv-title">虚实一体</div>
+      <div class="adv-desc">仿真验证 → 真机部署，降低试错成本和安全风险</div>
+    </div>
+  </div>
+  <div class="adv-item">
+    <div class="adv-num">5</div>
+    <div class="adv-text">
+      <div class="adv-title">毫秒级响应</div>
+      <div class="adv-desc">智能缓存机制，稳态决策延迟 &lt; 100ms</div>
+    </div>
+  </div>
+  <div class="adv-item">
+    <div class="adv-num">6</div>
+    <div class="adv-text">
+      <div class="adv-title">全栈可控</div>
+      <div class="adv-desc">感知 → 推理 → 力控 → 执行 → 数据闭环，全链路自研</div>
+    </div>
+  </div>
+  <div class="adv-item" style="grid-column: span 2;">
+    <div class="adv-num">7</div>
+    <div class="adv-text">
+      <div class="adv-title">弹性部署</div>
+      <div class="adv-desc">云端/边缘/私有化灵活切换，不锁定供应商</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 十、创始团队 -->
+<h2>十、创始团队</h2>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">
+  <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:24px; border-top:4px solid var(--blue);">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#2563eb,#7c3aed); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:18px;">W</div>
+      <div>
+        <div style="font-weight:700; font-size:16px; color:#1e293b;">创始人 Wang</div>
+        <div style="font-size:12px; color:#94a3b8;">大模型与平台架构</div>
+      </div>
+    </div>
+    <div style="font-size:14px; color:#475569; line-height:1.9;">
+      本科毕业于<strong>电子科技大学</strong>(985/双一流)，研究生就读于<strong>美国南加州大学</strong>(USC, 全美Top 30)计算机专业，具备扎实的计算机科学理论功底与国际化技术视野。先后就职于<strong>字节跳动、腾讯</strong>等一线互联网大厂，担任高阶算法工程师与平台架构开发，拥有多年大规模分布式系统与AI平台建设经验。近年深耕大模型领域，主导大模型训练、推理优化与工程落地，对从模型研发到产品交付的全链路有深入理解。
+    </div>
+  </div>
+  <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:24px; border-top:4px solid var(--purple);">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#7c3aed,#ec4899); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:18px;">P</div>
+      <div>
+        <div style="font-weight:700; font-size:16px; color:#1e293b;">创始人 Pan</div>
+        <div style="font-size:12px; color:#94a3b8;">硬件架构 · 具身智能</div>
+      </div>
+    </div>
+    <div style="font-size:14px; color:#475569; line-height:1.9;">
+      本科及研究生均毕业于<strong>电子科技大学</strong>（985/双一流）物理学专业，拥有扎实的物理学理论功底与电子电路设计能力。曾主导负责<strong>中电某研究所国家级基金项目</strong>并顺利完成交付。现任某高校实验室负责人，具有多年硬件设备设计、接口调试与系统联调经验。近年投身具身智能领域，对机器人产业链从硬件选型、传感器集成到系统级方案落地有深度理解，擅长将物理学思维与工程实践相结合，推动机器人系统从原型验证走向产品化交付。
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- 十一、路线图 -->
+<h2>十一、路线图</h2>
+
+<div class="roadmap">
+  <div class="rm-item">
+    <span class="rm-phase">Phase 1</span>
+    <span class="rm-desc">视觉推理 + 仿真闭环验证</span>
+    <span class="rm-badge rm-done">✅ 已完成</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 2</span>
+    <span class="rm-desc">云端大模型 API 接入 + 推理服务</span>
+    <span class="rm-badge rm-done">✅ 已完成</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 3</span>
+    <span class="rm-desc">动作模型微调 + Demo 真机验证</span>
+    <span class="rm-badge rm-wip">🔧 进行中</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 4</span>
+    <span class="rm-desc">工业级硬件适配 + 力控集成</span>
+    <span class="rm-badge rm-plan">📋 规划中</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 5</span>
+    <span class="rm-desc">自学习闭环：Case 采集 + 分析 + 自动微调</span>
+    <span class="rm-badge rm-plan">📋 规划中</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 6</span>
+    <span class="rm-desc">多模态交互：语音/手势指令 + 人机协作</span>
+    <span class="rm-badge rm-plan">📋 规划中</span>
+  </div>
+  <div class="rm-item">
+    <span class="rm-phase">Phase 7</span>
+    <span class="rm-desc">产品化：场景配置 UI + 监控大屏 + 多臂编排</span>
+    <span class="rm-badge rm-plan">📋 规划中</span>
+  </div>
+</div>
+
+</body>
+</html>
