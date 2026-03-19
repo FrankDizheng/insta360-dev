@@ -6,3 +6,11 @@ CameraSDK/
 *.h5
 captures/
 __pycache__/
+.venv/
+.env
+.DS_Store
+*.pyc
+vendor/
+.pytest_cache/
+*.egg-info/
+.gitignore.bak
