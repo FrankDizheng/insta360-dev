@@ -1,0 +1,15 @@
+# Insta360 X5 开发依赖
+
+# HTTP 请求（OSC API）
+requests>=2.31.0
+
+# 图像处理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# 视频处理
+# ffmpeg-python>=0.2.0  # 可选，需要系统安装 ffmpeg
+
+# 工具
+python-dotenv>=1.0.0

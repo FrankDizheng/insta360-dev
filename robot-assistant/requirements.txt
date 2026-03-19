@@ -1,0 +1,18 @@
+# Cloud AI APIs
+dashscope>=1.20.0
+websocket-client>=1.6.0
+
+# Camera & Vision
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Audio
+pyaudio>=0.2.14
+sounddevice>=0.4.6
+
+# Wake Word
+pvporcupine>=3.0.0
+
+# Utilities
+python-dotenv>=1.0.0
