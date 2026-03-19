@@ -1,61 +1,63 @@
-"""
-VLM Sorting API Server
-Receives camera images, returns action commands.
-Deploy on: local GPU machine / cloud GPU server / edge device.
+"""Generic vision-decision service for robot MVP integration.
 
-Usage:
-    pip install fastapi uvicorn python-multipart
-    python api_server.py
+This service accepts an image plus task context, calls a multimodal backend,
+returns a structured action, and logs cases for replay/human correction.
 """
-import os, sys, json, re, time, hashlib
-from typing import Optional
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import os, sys, json, re, time
+from typing import Any, Optional
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import base64, tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "bridge"))
 from model_feed import analyze_image
+from case_store import CaseStore
 
-app = FastAPI(title="VLM Sorting Controller", version="1.0")
+app = FastAPI(title="Vision Decision Service", version="2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 
-# ── Plan template cache ──
-PLAN_TEMPLATE = [
-    {"action": "move_above", "target": "{object}"},
-    {"action": "lower", "target": "{object}"},
-    {"action": "grasp", "target": ""},
-    {"action": "lift", "target": ""},
-    {"action": "move_above", "target": "{bin}"},
-    {"action": "lower", "target": "{bin}"},
-    {"action": "release", "target": ""},
-]
+case_store = CaseStore()
 
-plan_cache = {}
-session_state = {
-    "action_history": [],
-    "held_object": None,
-    "sorted_objects": [],
-    "template_learned": False,
-}
-
-SORTING_PROMPT = """You are a robot controller for a sorting task.
-You see the scene from a camera. Identify objects and decide the next action.
+DECISION_PROMPT = """You are a robot controller.
+You see the current workspace from a camera and must decide the next single robot action.
 
 Output EXACTLY ONE JSON:
 {"action": "<action>", "target": "<target>", "reason": "<brief reason>"}
 
-Valid actions: move_above, lower, grasp, lift, release, done
-Valid targets: any object name or bin name visible in the scene.
+Valid actions: move_above, lower, grasp, lift, release, wait, done
+Valid targets: an object name, a zone name, or an empty string.
 
-For each object: move_above → lower → grasp → lift → move_above <bin> → lower <bin> → release
-When all objects sorted: {"action": "done"}
+Follow the task description strictly.
+Return only the best next action, not the whole plan.
 
 Rules:
 - Output ONLY the JSON.
-- Sort one object at a time.
+- Keep actions simple and executable.
 """
+
+
+def _default_session_state() -> dict:
+    return {
+        "action_history": [],
+        "held_object": None,
+        "completed_targets": [],
+        "template_learned": False,
+        "last_task_description": "",
+        "vlm_calls": 0,
+        "cache_hits": 0,
+        "case_count": 0,
+    }
+
+
+sessions: dict[str, dict] = {}
+plan_cache: dict[tuple, dict] = {}
+
+
+def _get_session(session_id: str) -> dict:
+    if session_id not in sessions:
+        sessions[session_id] = _default_session_state()
+    return sessions[session_id]
 
 
 class ActionResponse(BaseModel):
@@ -65,18 +67,37 @@ class ActionResponse(BaseModel):
     source: str = "vlm"
     latency_ms: float = 0
     step: int = 0
+    case_id: str = ""
+    task_description: str = ""
+    status: str = "ok"
+
+
+class CorrectionRequest(BaseModel):
+    session_id: str = "default"
+    corrected_action: str
+    corrected_target: str = ""
+    reason: str = ""
+    reviewer: str = "human"
+
+
+class FeedbackRequest(BaseModel):
+    action: str
+    target: str = ""
+    success: bool
+    detail: str = ""
+    case_id: str = ""
+    session_id: str = "default"
 
 
 class SessionStatus(BaseModel):
+    session_id: str
     action_history: list
     held_object: Optional[str]
-    sorted_objects: list
+    completed_targets: list
     template_learned: bool
     total_vlm_calls: int
     total_cache_hits: int
-
-
-stats = {"vlm_calls": 0, "cache_hits": 0}
+    total_cases: int
 
 
 def parse_action(text):
@@ -89,30 +110,83 @@ def parse_action(text):
     return {"action": "done", "target": "", "reason": "parse_error"}
 
 
+def parse_json_dict(raw_text: str) -> dict[str, Any]:
+    if not raw_text:
+        return {}
+    try:
+        value = json.loads(raw_text)
+    except json.JSONDecodeError:
+        return {"raw": raw_text}
+    return value if isinstance(value, dict) else {"value": value}
+
+
 @app.post("/decide", response_model=ActionResponse)
 async def decide_action(
     image: UploadFile = File(...),
-    context: str = "",
-    use_cache: bool = True,
+    task_description: str = Form(""),
+    context: str = Form(""),
+    robot_state: str = Form(""),
+    spatial_context: str = Form(""),
+    metadata: str = Form(""),
+    use_cache: bool = Form(True),
+    session_id: str = Form("default"),
 ):
     """
     Send a camera image, receive the next robot action.
-    
+
     - image: current camera frame (JPEG/PNG)
-    - context: optional extra context (e.g. "objects: bottle_a, bottle_b")
+    - task_description: high-level task to execute
+    - context: optional extra context
     - use_cache: whether to use plan template caching
     """
-    step = len(session_state["action_history"])
+    ss = _get_session(session_id)
+    step = len(ss["action_history"])
+    ss["last_task_description"] = task_description
+    parsed_robot_state = parse_json_dict(robot_state)
+    parsed_spatial_context = parse_json_dict(spatial_context)
+    parsed_metadata = parse_json_dict(metadata)
 
     cache_key = (
-        tuple(session_state["sorted_objects"]),
-        session_state["held_object"],
-        tuple(session_state["action_history"][-3:]) if session_state["action_history"] else (),
+        session_id,
+        task_description,
+        json.dumps(parsed_robot_state, ensure_ascii=False, sort_keys=True),
+        json.dumps(parsed_spatial_context, ensure_ascii=False, sort_keys=True),
+        tuple(ss["completed_targets"]),
+        ss["held_object"],
+        tuple(ss["action_history"][-3:]) if ss["action_history"] else (),
     )
 
-    if use_cache and session_state["template_learned"] and cache_key in plan_cache:
+    img_bytes = await image.read()
+    case_id, case_dir = case_store.create_case(
+        session_id=session_id,
+        step=step,
+        task_description=task_description,
+        context=context,
+        image_bytes=img_bytes,
+    )
+    case_store.log_request(
+        case_dir,
+        task_description=task_description,
+        context=context,
+        robot_state=parsed_robot_state,
+        spatial_context=parsed_spatial_context,
+        metadata=parsed_metadata,
+        use_cache=use_cache,
+    )
+    ss["case_count"] += 1
+
+    if use_cache and ss["template_learned"] and cache_key in plan_cache:
         cached = plan_cache[cache_key]
-        stats["cache_hits"] += 1
+        ss["cache_hits"] += 1
+        case_store.log_decision(
+            session_id,
+            case_id,
+            prompt="cached_template",
+            raw_response=json.dumps(cached, ensure_ascii=False),
+            parsed_action=cached,
+            source="cache",
+            latency_ms=0,
+        )
         return ActionResponse(
             action=cached["action"],
             target=cached.get("target", ""),
@@ -120,100 +194,151 @@ async def decide_action(
             source="cache",
             latency_ms=0,
             step=step,
+            case_id=case_id,
+            task_description=task_description,
         )
 
-    img_bytes = await image.read()
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-        f.write(img_bytes)
-        tmp_path = f.name
+    image_path = str(case_dir / "input.jpg")
 
-    try:
-        hist = ""
-        if session_state["action_history"]:
-            hist = "\n\nRecent actions:\n"
-            for i, a in enumerate(session_state["action_history"][-10:]):
-                hist += f"  {a}\n"
+    hist = ""
+    if ss["action_history"]:
+        hist = "\n\nRecent actions:\n"
+        for a in ss["action_history"][-10:]:
+            hist += f"  {a}\n"
 
-        status = f"\nSorted: {session_state['sorted_objects']}"
-        if session_state["held_object"]:
-            status += f"\nCurrently holding: {session_state['held_object']}"
-        if context:
-            status += f"\nContext: {context}"
+    status_parts = [f"\nCompleted targets: {ss['completed_targets']}"]
+    if ss["held_object"]:
+        status_parts.append(f"Currently holding: {ss['held_object']}")
+    if context:
+        status_parts.append(f"Context: {context}")
+    if task_description:
+        status_parts.append(f"Task: {task_description}")
+    if parsed_robot_state:
+        status_parts.append(f"Robot state: {json.dumps(parsed_robot_state, ensure_ascii=False)}")
+    if parsed_spatial_context:
+        status_parts.append(f"Spatial context: {json.dumps(parsed_spatial_context, ensure_ascii=False)}")
+    if parsed_metadata:
+        status_parts.append(f"Metadata: {json.dumps(parsed_metadata, ensure_ascii=False)}")
 
-        prompt = SORTING_PROMPT + status + hist + f"\nStep {step}. Next action?"
+    prompt = DECISION_PROMPT + "\n".join(status_parts) + hist + f"\nStep {step}. Next action?"
 
-        t0 = time.time()
-        resp = analyze_image(tmp_path, prompt, stream=False)
-        latency = (time.time() - t0) * 1000
-        stats["vlm_calls"] += 1
+    t0 = time.time()
+    resp = analyze_image(image_path, prompt, stream=False)
+    latency = (time.time() - t0) * 1000
+    ss["vlm_calls"] += 1
 
-        act = parse_action(resp)
+    act = parse_action(resp)
 
-        if use_cache:
-            plan_cache[cache_key] = act
+    if use_cache:
+        plan_cache[cache_key] = act
 
-        session_state["action_history"].append(
-            f"{act.get('action', '?')} {act.get('target', '')}".strip()
-        )
+    case_store.log_decision(
+        session_id,
+        case_id,
+        prompt=prompt,
+        raw_response=resp,
+        parsed_action=act,
+        source="vlm",
+        latency_ms=round(latency, 1),
+    )
 
-        return ActionResponse(
-            action=act.get("action", "done"),
-            target=act.get("target", ""),
-            reason=act.get("reason", ""),
-            source="vlm",
-            latency_ms=round(latency, 1),
-            step=step,
-        )
-    finally:
-        os.unlink(tmp_path)
+    ss["action_history"].append(
+        f"{act.get('action', '?')} {act.get('target', '')}".strip()
+    )
+
+    return ActionResponse(
+        action=act.get("action", "done"),
+        target=act.get("target", ""),
+        reason=act.get("reason", ""),
+        source="vlm",
+        latency_ms=round(latency, 1),
+        step=step,
+        case_id=case_id,
+        task_description=task_description,
+    )
 
 
 @app.post("/feedback")
-async def action_feedback(action: str, target: str, success: bool, detail: str = ""):
+async def action_feedback(payload: FeedbackRequest):
     """
     Hardware agent reports action execution result.
-    Used to update session state (e.g. grasp succeeded, object released).
+    Used to update session state and log case outcomes.
     """
-    if action == "grasp" and success:
-        session_state["held_object"] = target or detail
-    elif action == "release" and success:
-        if session_state["held_object"]:
-            session_state["sorted_objects"].append(session_state["held_object"])
-        session_state["held_object"] = None
-        if not session_state["template_learned"]:
-            session_state["template_learned"] = True
-    return {"status": "ok", "state": session_state}
+    ss = _get_session(payload.session_id)
+    if payload.action == "grasp" and payload.success:
+        ss["held_object"] = payload.target or payload.detail
+    elif payload.action == "release" and payload.success:
+        if ss["held_object"]:
+            ss["completed_targets"].append(ss["held_object"])
+        ss["held_object"] = None
+        if not ss["template_learned"]:
+            ss["template_learned"] = True
+    if payload.case_id:
+        case_store.log_feedback(
+            payload.session_id,
+            payload.case_id,
+            payload.action,
+            payload.target,
+            payload.success,
+            payload.detail,
+        )
+    return {"status": "ok", "session_id": payload.session_id, "state": ss}
 
 
-@app.get("/status", response_model=SessionStatus)
-async def get_status():
+@app.post("/correct/{case_id}")
+async def correct_case(case_id: str, payload: CorrectionRequest):
+    corrected_action = {
+        "action": payload.corrected_action,
+        "target": payload.corrected_target,
+        "reason": payload.reason,
+    }
+    case_store.log_correction(
+        session_id=payload.session_id,
+        case_id=case_id,
+        corrected_action=corrected_action,
+        reviewer=payload.reviewer,
+        notes=payload.reason,
+    )
+    return {"status": "ok", "case_id": case_id, "corrected_action": corrected_action}
+
+
+@app.get("/status")
+async def get_status(session_id: str = "default"):
+    ss = _get_session(session_id)
     return SessionStatus(
-        **session_state,
-        total_vlm_calls=stats["vlm_calls"],
-        total_cache_hits=stats["cache_hits"],
+        session_id=session_id,
+        action_history=ss["action_history"],
+        held_object=ss["held_object"],
+        completed_targets=ss["completed_targets"],
+        template_learned=ss["template_learned"],
+        total_vlm_calls=ss["vlm_calls"],
+        total_cache_hits=ss["cache_hits"],
+        total_cases=ss["case_count"],
     )
 
 
 @app.post("/reset")
-async def reset_session():
-    session_state["action_history"] = []
-    session_state["held_object"] = None
-    session_state["sorted_objects"] = []
-    session_state["template_learned"] = False
-    plan_cache.clear()
-    stats["vlm_calls"] = 0
-    stats["cache_hits"] = 0
-    return {"status": "reset"}
+async def reset_session(session_id: str = "default"):
+    sessions[session_id] = _default_session_state()
+    keys_to_remove = [k for k in plan_cache if k[0] == session_id]
+    for k in keys_to_remove:
+        del plan_cache[k]
+    return {"status": "reset", "session_id": session_id}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "vlm": "qwen3.5", "cache_entries": len(plan_cache)}
+    return {
+        "status": "ok",
+        "active_sessions": len(sessions),
+        "cache_entries": len(plan_cache),
+        "cases_root": str(case_store.root),
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting VLM Sorting API Server...")
+    print("Starting Vision Decision Service...")
     print("  Docs:   http://0.0.0.0:8100/docs")
     print("  Health: http://0.0.0.0:8100/health")
     uvicorn.run(app, host="0.0.0.0", port=8100)
