@@ -14,7 +14,7 @@ from uuid import uuid4
 import requests
 
 from nero import ActionDecision, dispatch_action, get_robot_controller
-from nero.perception import get_camera, CameraInterface
+from nero.perception import get_camera
 
 
 class ImageDirectoryCapture:
@@ -84,7 +84,7 @@ def run_agent(
                     data={
                         "context": context,
                         "task_description": task_description or context,
-                        "robot_state": json.dumps(robot.get_status(), ensure_ascii=False),
+                        "robot_state": json.dumps(robot.get_state().to_dict(), ensure_ascii=False),
                         "spatial_context": json.dumps({"camera_mode": "image_dir" if image_dir else "live_camera"}),
                         "metadata": json.dumps({"agent": "hardware_agent", "robot_mode": robot_mode}),
                         "use_cache": str(use_cache).lower(),
@@ -119,7 +119,7 @@ def run_agent(
             break
 
         try:
-            success = dispatch_action(robot, action, target)
+            success = dispatch_action(robot, action, target, decision.target_pos)
         except ValueError as exc:
             print(f"  ERROR: {exc}")
             success = False
@@ -150,6 +150,7 @@ def run_agent(
         cam.release()
     else:
         cam.disconnect()
+    robot.disconnect()
 
 
 if __name__ == "__main__":

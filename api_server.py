@@ -25,7 +25,7 @@ You see the current workspace from a camera and must decide the next single robo
 Output EXACTLY ONE JSON:
 {"action": "<action>", "target": "<target>", "reason": "<brief reason>"}
 
-Valid actions: move_above, lower, grasp, lift, release, wait, done
+Valid actions: move_above, lower, grasp, lift, release, home, wait, done
 Valid targets: an object name, a zone name, or an empty string.
 
 Follow the task description strictly.
@@ -70,6 +70,7 @@ class ActionResponse(BaseModel):
     case_id: str = ""
     task_description: str = ""
     status: str = "ok"
+    target_pos: list[float] | None = None
 
 
 class CorrectionRequest(BaseModel):
