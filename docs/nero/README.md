@@ -29,6 +29,7 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [03_控制层设计](./03_CONTROL_LAYER.md)
 - [04_视觉与 VLM 层](./04_PERCEPTION_LAYER.md)
 - [05_编码任务清单](./05_IMPLEMENTATION_BACKLOG.md)
+- [06_标定现状总结](./06_CALIBRATION_STATUS.md)
 
 ## 关键边界
 
