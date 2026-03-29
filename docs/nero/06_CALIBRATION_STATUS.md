@@ -2,16 +2,15 @@
 
 ## 1. 当前结论
 
-- 手眼标定已经完成，当前结果可以用于“看到标定板后输出目标点在 `base` 坐标系下的位置”。
-- TCP 标定已经求出一个当前可用结果，但 TCP 的物理接触闭环验证还没有干净完成。
-- 后续 `3 mm / 4 mm / 5 mm` 近距离接近实验，不能再作为“手眼是否完成”的判据，它们主要暴露的是 TCP、轨迹路径和板位姿控制问题。
+- 手眼标定已经完成，当前结果可以用于"看到标定板后输出目标点在 `base` 坐标系下的位置"。
+- TCP 标定已经完成数值求解，并于 2026-03-29 完成了物理接触闭环验证，接触误差约 `0.24 mm`。
+- 标定全流程（手眼 + TCP）可以认为已经收口。
 
 ## 2. 手眼标定状态
 
 当前已保存的核心结果：
 
-- `handeye_result_session1.json`
-- `validate_20260326_213442.json`
+- `handeye_result.json`
 
 从现有结果看：
 
@@ -46,55 +45,57 @@
 - `gripper_tcp_left_front_tip.json`，RMSE 约 `8.21 mm`
 - `gripper_tcp.json`，RMSE 约 `8.44 mm`
 
-当前判断：
+### TCP 物理接触验证（2026-03-29 完成）
 
-- TCP 数值解已经完成
-- 当前推荐 TCP 已明显优于早期结果
-- 但 TCP 的独立物理验收还未完成
+验证方式：
 
-## 4. 近距离接近实验暴露的问题
+- 固定板位姿
+- 先抬高 `100 mm` 脱离
+- `move_p` 到 `5 mm` approach 位姿
+- `move_l` 直线下探到 `3 mm` pretouch
+- `move_l` 直线下探到板面目标点（`board_xy 0.075 0.06`）
 
-当前接近测试中，已经确认的主要问题有：
+验证结果（`touch_plan_20260329_144552.json`）：
+
+- 模式：`target_executed`
+- 位置误差 X：`-0.13 mm`
+- 位置误差 Y：`+0.07 mm`
+- 位置误差 Z：`+0.19 mm`
+- **总位置误差：`0.24 mm`**
+
+结论：TCP 物理验证通过，接触精度远优于标定残差（`1.27 mm`）。
+
+## 4. 近距离接近实验暴露的问题（历史记录）
+
+早期接近测试中，确认的主要问题有：
 
 - 板位姿变化后，之前测出来的 `4-6 mm` 安全边界不能直接沿用
 - `move_p` 是点到点运动，终点看似安全，不代表中间轨迹不会先碰到板
 - `3-5 mm` 的间隙已经接近系统总误差预算，不适合作为默认安全距离
 
-当前可以明确区分：
+最终验证采用了推荐方案：先 lift、再 `move_p` approach、最后 `move_l` 沿法向直线下探，成功解决了上述问题。
 
-- 这不是“手眼标定失败”
-- 也不完全等同于“TCP 数值求解失败”
-- 更像是“板位姿变化 + 轨迹方式 + 近距离误差裕量不足”的叠加问题
+## 5. 当前产物位置
 
-## 5. 当前建议
+标定脚本和结果文件已归档到本仓库：
 
-如果当前里程碑只是完成手眼标定：
+脚本目录：`calibration/scripts/`
 
-- 到这里即可收口
-- 不必继续拿接触实验作为手眼完成条件
+- `handeye_board_runtime.py` — 核心运行时：board 检测、坐标变换、相机管理、机器人连接
+- `solve_handeye_charuco.py` — 手眼求解
+- `nero_handeye_capture.py` — 手眼采样采集
+- `validate_handeye_charuco.py` — 手眼验证
+- `locate_board_target.py` — 板上目标点定位
+- `calibrate_gripper_tcp.py` — TCP 标定（采样 + 求解）
+- `touch_board_target.py` — TCP 物理接触验证
+- `pi_run_touch_3mm_serial.py` — 批量 touch 运行器
+- `pi_camera_preview_server.py` — 相机预览服务
 
-如果后续还要补 TCP 物理验证：
+结果目录：`calibration/results/session1/`
 
-- 固定单一板位姿
-- 每次从明确抬高、明确脱离的安全起点开始
-- 先到远一点的安全中间点
-- 最后一段只用 `move_l` 沿板法向直线下探
-- 先重复验证同一个已知点，再补 1 到 2 个其他已知点
-
-## 6. 当前产物位置
-
-当前这批联调脚本和结果文件，主要还在工作区根目录与树莓派数据目录中，而不是系统化整理在本仓库代码目录下。
-
-当前关键脚本包括：
-
-- `handeye_board_runtime.py`
-- `validate_handeye_charuco.py`
-- `locate_board_target.py`
-- `calibrate_gripper_tcp.py`
-- `touch_board_target.py`
-- `pi_run_touch_3mm_serial.py`
-
-这意味着：
-
-- `insta360-dev` 目前适合作为状态文档仓
-- 当前实验脚本后续仍需要一次明确归档，再决定是否纳入本仓库
+- `handeye_result.json` — 手眼标定结果
+- `gripper_tcp_left_front_tip_samples_004_006.json` — 推荐 TCP 结果
+- `touch_plan_20260329_144552.json` — TCP 物理验证通过记录
+- `safe_reverse_5mm_pose.json` — 安全姿态参考
+- `gripper_tcp_left_front_tip.json` — 历史 TCP 结果（不推荐）
+- `gripper_tcp.json` — 历史 TCP 结果（不推荐）

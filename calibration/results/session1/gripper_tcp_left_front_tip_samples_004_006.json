@@ -1,0 +1,32 @@
+{
+  "tool_name": "gripper_left_front_tip",
+  "frame": "flange_T_tcp",
+  "tcp_offset_xyzrpy_m_rad": [
+    0.005274388095808339,
+    -0.017093870380746425,
+    0.009175759991568458,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "sample_count": 3,
+  "target_name": "board_xy_0.075_0.06",
+  "target_point_in_board_xyz_m": [
+    0.075,
+    0.06,
+    0.0
+  ],
+  "sample_files": [
+    "tcp_sample_004.json",
+    "tcp_sample_005.json",
+    "tcp_sample_006.json"
+  ],
+  "residuals_m": [
+    0.0014936248029269131,
+    0.0008754726547174975,
+    0.0013678681523137792
+  ],
+  "residual_rmse_m": 0.0012738956921180629,
+  "generated_at": "2026-03-27T15:18:14",
+  "note": "Solved from tcp_sample_004 through tcp_sample_006 only."
+}

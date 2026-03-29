@@ -1,0 +1,31 @@
+{
+  "tool_name": "gripper_left_front_tip",
+  "frame": "flange_T_tcp",
+  "tcp_offset_xyzrpy_m_rad": [
+    0.004897790164127731,
+    -0.011795374166183564,
+    0.007731975320801929,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "sample_count": 3,
+  "target_name": "board_xy_0.075_0.06",
+  "target_point_in_board_xyz_m": [
+    0.075,
+    0.06,
+    0.0
+  ],
+  "sample_files": [
+    "tcp_sample_001.json",
+    "tcp_sample_002.json",
+    "tcp_sample_003.json"
+  ],
+  "residuals_m": [
+    0.011456176782620975,
+    0.005331119077305449,
+    0.006512360447270434
+  ],
+  "residual_rmse_m": 0.008207225590625339,
+  "generated_at": "2026-03-27T15:18:14"
+}

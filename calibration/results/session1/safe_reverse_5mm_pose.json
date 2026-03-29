@@ -1,0 +1,18 @@
+{
+  "description": "Known-safe reverse-normal 5mm approach pose reference for locked-RPY pre-touch flow.",
+  "source_result": "d:\\cursor\\project\\touch_plan_20260327_154405.json",
+  "fixed_pose_xyzrpy_m_rad": [
+    -0.5724245164388224,
+    0.29159728611507524,
+    0.0015796254536899314,
+    1.565089100140875,
+    -0.9443802049616118,
+    -0.3252595594016633
+  ],
+  "fixed_rpy_m_rad": [
+    1.565089100140875,
+    -0.9443802049616118,
+    -0.3252595594016633
+  ],
+  "note": "Use this pose's roll/pitch/yaw as the locked orientation for subsequent pre-touch and touch moves."
+}
