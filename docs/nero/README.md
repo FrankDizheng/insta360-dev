@@ -30,6 +30,7 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [04_视觉与 VLM 层](./04_PERCEPTION_LAYER.md)
 - [05_编码任务清单](./05_IMPLEMENTATION_BACKLOG.md)
 - [06_标定现状总结](./06_CALIBRATION_STATUS.md)
+- [07_树莓派接入信息](./07_RASPBERRY_PI_ACCESS.md)
 
 ## 关键边界
 
