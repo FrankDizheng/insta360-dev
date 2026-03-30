@@ -7,6 +7,19 @@ import cv2
 import numpy as np
 from pyAgxArm import AgxArmFactory, create_agx_arm_config
 
+try:
+    from pyorbbecsdk import (
+        AlignFilter,
+        Config,
+        Context,
+        OBSensorType,
+        OBStreamType,
+        Pipeline,
+    )
+    _HAS_ORBBECSDK = True
+except ImportError:
+    _HAS_ORBBECSDK = False
+
 
 DICT_NAME_TO_ID = {
     "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
@@ -379,3 +392,223 @@ def capture_live_board_result_with_robot(
         "board_origin_in_base_xyzrpy_m_rad": matrix_to_xyzrpy(base_T_board),
     }
     return result, frame, detection
+
+
+# ---------------------------------------------------------------------------
+# Depth-fused board detection (Orbbec SDK RGBD)
+# ---------------------------------------------------------------------------
+
+def capture_aligned_rgbd(
+    warmup_frames: int = 15,
+    timeout_ms: int = 1000,
+    settle_s: float = 2.0,
+) -> tuple[np.ndarray, np.ndarray, float, dict]:
+    """Capture aligned color + depth frames via Orbbec SDK.
+
+    Returns (color_bgr, depth_u16, depth_scale, intrinsics_dict).
+    ``depth_scale`` converts raw uint16 values to millimetres.
+    ``intrinsics_dict`` contains the SDK-reported RGB intrinsics
+    (fx, fy, cx, cy, width, height).
+    """
+    if not _HAS_ORBBECSDK:
+        raise RuntimeError("pyorbbecsdk is not installed")
+
+    ctx = Context()
+    dev_list = ctx.query_devices()
+    if len(dev_list) == 0:
+        raise RuntimeError("No Orbbec device found")
+    dev = dev_list[0]
+    pipe = Pipeline(dev)
+    config = Config()
+
+    cp = pipe.get_stream_profile_list(OBSensorType.COLOR_SENSOR).get_default_video_stream_profile()
+    dp = pipe.get_stream_profile_list(OBSensorType.DEPTH_SENSOR).get_default_video_stream_profile()
+    config.enable_stream(cp)
+    config.enable_stream(dp)
+    align_filter = AlignFilter(OBStreamType.COLOR_STREAM)
+
+    pipe.start(config)
+    time.sleep(settle_s)
+
+    cam_param = pipe.get_camera_param()
+    ci = cam_param.rgb_intrinsic
+    intrinsics = {
+        "fx": ci.fx, "fy": ci.fy,
+        "cx": ci.cx, "cy": ci.cy,
+        "width": ci.width, "height": ci.height,
+    }
+
+    for _ in range(warmup_frames):
+        pipe.wait_for_frames(timeout_ms)
+    frameset = pipe.wait_for_frames(timeout_ms)
+    aligned = align_filter.process(frameset)
+
+    color_frame = aligned.get_color_frame()
+    depth_frame = aligned.get_depth_frame()
+
+    color_data = np.frombuffer(color_frame.get_data(), dtype=np.uint8)
+    color_img = cv2.imdecode(color_data, cv2.IMREAD_COLOR)
+    depth_raw = np.frombuffer(depth_frame.get_data(), dtype=np.uint16)
+    depth_img = depth_raw.reshape(depth_frame.get_height(), depth_frame.get_width())
+    depth_scale = depth_frame.get_depth_scale()
+
+    pipe.stop()
+    return color_img, depth_img, depth_scale, intrinsics
+
+
+def detect_board_pose_depth_fused(
+    color_img: np.ndarray,
+    depth_img: np.ndarray,
+    depth_scale: float,
+    intrinsics: dict,
+    board_cfg: dict,
+    min_corners_for_fusion: int = 3,
+) -> dict:
+    """Detect board via PnP, then correct Z using aligned depth.
+
+    Uses the SDK-reported intrinsics for PnP (matching the SDK color
+    resolution) and measures depth at each detected ChArUco corner to
+    compute a median Z correction.
+
+    Returns a dict with keys:
+        camera_T_board  -- 4x4 transform (depth-fused when available)
+        fused           -- True if depth correction was applied
+        pnp_z_mm        -- PnP-only board distance along camera Z
+        z_offset_mm     -- applied depth correction (0 if not fused)
+        markers         -- number of detected ArUco markers
+        charuco_corners -- number of interpolated ChArUco corners
+        corners_with_depth -- corners that had valid depth
+        depth_coverage_pct -- overall depth fill ratio
+    """
+    cm = np.array([
+        [intrinsics["fx"], 0, intrinsics["cx"]],
+        [0, intrinsics["fy"], intrinsics["cy"]],
+        [0, 0, 1],
+    ], dtype=np.float64)
+    dc = np.zeros((5, 1), dtype=np.float64)
+
+    aruco_dict, board = create_board(board_cfg)
+    gray = cv2.cvtColor(color_img, cv2.COLOR_BGR2GRAY)
+    params = create_detector_params()
+    corners, ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=params)
+    if ids is None or len(ids) < 4:
+        raise RuntimeError(f"Too few markers detected: {0 if ids is None else len(ids)}")
+
+    ok, cc, cids = cv2.aruco.interpolateCornersCharuco(corners, ids, gray, board)
+    if not ok or cids is None or len(cids) < 8:
+        raise RuntimeError(f"Too few ChArUco corners: {0 if cids is None else len(cids)}")
+
+    ok, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(cc, cids, board, cm, dc, None, None)
+    if not ok:
+        raise RuntimeError("PnP pose estimation failed")
+
+    camera_T_board_pnp = to_transform(rvec, tvec)
+    pnp_z_mm = float(tvec.flatten()[2]) * 1000.0
+
+    h, w = depth_img.shape
+    sq_x_inner = int(board_cfg["squares_x"]) - 1
+    diffs: list[float] = []
+
+    for i, corner in enumerate(cc):
+        u = int(round(corner[0, 0]))
+        v = int(round(corner[0, 1]))
+        if u < 4 or u >= w - 4 or v < 4 or v >= h - 4:
+            continue
+        roi = depth_img[v - 3 : v + 4, u - 3 : u + 4]
+        valid = roi[roi > 0]
+        if len(valid) < 3:
+            continue
+
+        d_mm = float(np.median(valid)) * depth_scale
+        cid = int(cids.flatten()[i])
+        row = cid // sq_x_inner
+        col = cid % sq_x_inner
+        bx = (col + 1) * float(board_cfg["square_length_m"])
+        by = (row + 1) * float(board_cfg["square_length_m"])
+        p_cam = (camera_T_board_pnp @ np.array([bx, by, 0, 1.0]))[:3]
+        diffs.append(d_mm - float(p_cam[2]) * 1000.0)
+
+    depth_coverage = float(np.count_nonzero(depth_img)) / depth_img.size * 100.0
+
+    result: dict = {
+        "markers": len(ids),
+        "charuco_corners": len(cids),
+        "corners_with_depth": len(diffs),
+        "depth_coverage_pct": depth_coverage,
+        "pnp_z_mm": pnp_z_mm,
+    }
+
+    if len(diffs) >= min_corners_for_fusion:
+        z_offset_mm = float(np.median(diffs))
+        camera_T_board = camera_T_board_pnp.copy()
+        camera_T_board[2, 3] += z_offset_mm / 1000.0
+        result["camera_T_board"] = camera_T_board
+        result["fused"] = True
+        result["z_offset_mm"] = z_offset_mm
+        result["depth_z_std_mm"] = float(np.std(diffs))
+    else:
+        result["camera_T_board"] = camera_T_board_pnp
+        result["fused"] = False
+        result["z_offset_mm"] = 0.0
+
+    return result
+
+
+def capture_live_board_result_rgbd(
+    handeye: dict,
+    robot,
+) -> tuple[dict, np.ndarray, dict]:
+    """Like ``capture_live_board_result_with_robot`` but uses depth-fused
+    board detection via Orbbec SDK RGBD capture.
+
+    Falls back to V4L2 PnP-only detection when the depth sensor is
+    unavailable or depth fusion fails.
+    """
+    if not _HAS_ORBBECSDK:
+        return capture_live_board_result_with_robot(handeye, robot)
+
+    color_img, depth_img, depth_scale, intrinsics = capture_aligned_rgbd()
+    det = detect_board_pose_depth_fused(
+        color_img, depth_img, depth_scale, intrinsics, handeye["board"],
+    )
+
+    flange_msg = robot.get_flange_pose()
+    if flange_msg is None:
+        raise RuntimeError("Flange pose unavailable")
+    flange_pose = np.array(flange_msg.msg, dtype=np.float64)
+    base_T_flange = pose_to_transform(flange_pose)
+    base_T_camera = base_T_flange @ handeye["flange_T_camera_np"]
+    base_T_board = base_T_camera @ det["camera_T_board"]
+
+    result = {
+        "base_T_flange": base_T_flange,
+        "base_T_camera": base_T_camera,
+        "base_T_board": base_T_board,
+        "flange_pose_xyzrpy_m_rad": flange_pose.tolist(),
+        "board_origin_in_base_xyz_m": base_T_board[:3, 3].tolist(),
+        "board_origin_in_base_xyzrpy_m_rad": matrix_to_xyzrpy(base_T_board),
+        "depth_fused": det["fused"],
+        "depth_z_offset_mm": det["z_offset_mm"],
+        "depth_coverage_pct": det.get("depth_coverage_pct", 0),
+    }
+    return result, color_img, det
+
+
+def wait_move_done(
+    robot,
+    target_flange_xyz: list[float],
+    tol_mm: float = 0.5,
+    timeout_s: float = 20.0,
+) -> bool:
+    """Position-based motion completion check (more reliable than
+    ``wait_motion_done`` which depends on arm status polling)."""
+    time.sleep(0.3)
+    target = np.array(target_flange_xyz[:3], dtype=np.float64)
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        fp = np.array(robot.get_flange_pose().msg[:3], dtype=np.float64)
+        if np.linalg.norm(fp - target) * 1000.0 < tol_mm:
+            time.sleep(0.3)
+            return True
+        time.sleep(0.1)
+    return False

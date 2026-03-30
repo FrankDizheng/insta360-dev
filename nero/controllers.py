@@ -18,9 +18,11 @@ from abc import ABC, abstractmethod
 from nero.types import (
     NUM_JOINTS,
     ArmState,
+    FATAL_ARM_STATUS_CODES,
     FlangePose,
     GripperState,
     Position3D,
+    arm_status_label,
     clamp_joints,
 )
 
@@ -34,6 +36,28 @@ except ImportError:
 MOVE_SETTLE_S = 0.8
 GRIPPER_SETTLE_S = 1.0
 LIFT_DELTA_DEG = 15.0
+
+
+def read_arm_status_code(robot) -> int | None:
+    """Read controller `arm_status` from pyAgxArm `get_arm_status()` (None if unavailable)."""
+    try:
+        st = robot.get_arm_status()
+    except Exception:
+        return None
+    if st is None or st.msg is None:
+        return None
+    return int(getattr(st.msg, "arm_status", 0))
+
+
+def assert_arm_status_ok(robot) -> None:
+    """Raise RuntimeError if the arm reports a fatal arm_status (IK fail, collision, etc.)."""
+    code = read_arm_status_code(robot)
+    if code is None:
+        return
+    if code in FATAL_ARM_STATUS_CODES:
+        raise RuntimeError(
+            f"NERO arm_status={code} ({arm_status_label(code)}) — aborting motion"
+        )
 
 
 class BaseRobotController(ABC):
@@ -256,11 +280,17 @@ class NeroRobotController(BaseRobotController):
         if not self.connected or self._robot is None:
             return ArmState(connected=False, mode="nero")
 
-        angles_raw = self._robot.get_joint_angles()
-        angles_deg = [math.degrees(a) for a in angles_raw] if angles_raw else []
+        ja = self._robot.get_joint_angles()
+        if ja is not None and ja.msg is not None:
+            angles_deg = [math.degrees(float(a)) for a in ja.msg[:NUM_JOINTS]]
+        else:
+            angles_deg = []
 
-        flange_raw = self._robot.get_flange_pose()
-        flange = FlangePose.from_list(flange_raw) if flange_raw else None
+        fp = self._robot.get_flange_pose()
+        if fp is not None and fp.msg is not None:
+            flange = FlangePose.from_list(list(fp.msg)[:6])
+        else:
+            flange = None
 
         gripper = GripperState(available=self._gripper_available)
         if self._gripper_available and self._end_effector:
@@ -283,6 +313,11 @@ class NeroRobotController(BaseRobotController):
         except Exception:
             pass
 
+        err_msg = ""
+        ac = read_arm_status_code(self._robot)
+        if ac is not None and ac in FATAL_ARM_STATUS_CODES:
+            err_msg = f"arm_status={ac} ({arm_status_label(ac)})"
+
         return ArmState(
             connected=True,
             enabled=True,
@@ -290,7 +325,47 @@ class NeroRobotController(BaseRobotController):
             joint_angles_deg=angles_deg,
             flange_pose=flange,
             gripper=gripper,
+            error_msg=err_msg,
         )
+
+    def check_arm_status(self) -> tuple[int, str]:
+        """Return (arm_status_code, label). Use after moves to detect IK/collision errors."""
+        if not self.connected or self._robot is None:
+            return -1, "disconnected"
+        code = read_arm_status_code(self._robot)
+        if code is None:
+            return -1, "unavailable"
+        return code, arm_status_label(code)
+
+    def wait_motion_complete(
+        self,
+        timeout_s: float = 30.0,
+        poll_s: float = 0.1,
+    ) -> tuple[bool, str]:
+        """Poll until motion_status==0 or timeout. Raises on fatal arm_status."""
+        if self._robot is None:
+            return False, "not_connected"
+        time.sleep(0.2)
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            assert_arm_status_ok(self._robot)
+            st = self._robot.get_arm_status()
+            if st is not None and st.msg is not None:
+                if getattr(st.msg, "motion_status", None) == 0:
+                    return True, "ok"
+            time.sleep(poll_s)
+        return False, "motion_timeout"
+
+    def electronic_emergency_stop(self) -> bool:
+        """Damped e-stop (preferred over disable when arm is raised)."""
+        if self._robot is None:
+            return False
+        try:
+            self._robot.electronic_emergency_stop()
+            return True
+        except Exception as exc:
+            print(f"[NERO] electronic_emergency_stop failed: {exc}")
+            return False
 
     # -- low-level motion -------------------------------------------------
 
@@ -306,21 +381,34 @@ class NeroRobotController(BaseRobotController):
         safe_rad = [math.radians(a) for a in safe_deg]
 
         try:
+            if not self._robot.get_joint_enable_status(255):
+                print("[NERO] Warning: not all joints report enabled before move_j")
+        except Exception:
+            pass
+
+        try:
             self._robot.move_j(safe_rad)
-            time.sleep(settle_s)
-            return True
         except Exception as exc:
             print(f"[NERO] move_joints failed: {exc}")
             return False
+
+        wait_timeout = max(25.0, float(settle_s) + 20.0)
+        ok, reason = self.wait_motion_complete(timeout_s=wait_timeout)
+        if not ok:
+            code, label = self.check_arm_status()
+            print(f"[NERO] move_joints wait failed: {reason} (arm_status={code} {label})")
+            return False
+        time.sleep(min(settle_s, 0.5))
+        return True
 
     def move_joint_relative(self, joint_index: int, delta_deg: float) -> bool:
         """Read current angles, adjust one joint, send full array."""
         if not self.connected or self._robot is None:
             return False
         raw = self._robot.get_joint_angles()
-        if not raw:
+        if raw is None or raw.msg is None:
             return False
-        current_deg = [math.degrees(a) for a in raw]
+        current_deg = [math.degrees(float(a)) for a in raw.msg[:NUM_JOINTS]]
         current_deg[joint_index] += delta_deg
         return self.move_joints(current_deg)
 

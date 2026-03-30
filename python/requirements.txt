@@ -8,6 +8,9 @@ opencv-python>=4.8.0
 Pillow>=10.0.0
 numpy>=1.24.0
 
+# NERO arm simulation / visualization (nero/visualize.py)
+matplotlib>=3.7.0
+
 # 视频处理
 # ffmpeg-python>=0.2.0  # 可选，需要系统安装 ffmpeg
 

@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Step 1: Capture RGBD scan and locate objects by pixel coordinates.
+
+Captures an aligned color+depth image from the gripper-mounted Orbbec camera,
+saves the images, and optionally converts user-supplied pixel coordinates to
+3D positions in the robot's base frame using the calibrated hand-eye transform.
+"""
+
+import argparse
+import json
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+sys.path.insert(0, "/home/pi")
+from handeye_board_runtime import (
+    capture_aligned_rgbd,
+    connect_robot,
+    load_handeye,
+    pose_to_transform,
+)
+
+
+def parse_pixel_coords(raw: str) -> dict[str, tuple[int, int]]:
+    result = {}
+    for entry in raw.split(","):
+        parts = entry.strip().split(":")
+        if len(parts) != 3:
+            raise ValueError(f"Expected 'name:u:v', got '{entry.strip()}'")
+        name, u, v = parts[0].strip(), int(parts[1]), int(parts[2])
+        result[name] = (u, v)
+    return result
+
+
+def depth_at_pixel(depth_u16: np.ndarray, u: int, v: int, depth_scale: float, window: int = 7) -> float | None:
+    """Return depth in metres at (u, v) using a median window, or None if invalid."""
+    h, w = depth_u16.shape
+    half = window // 2
+    v0, v1 = max(0, v - half), min(h, v + half + 1)
+    u0, u1 = max(0, u - half), min(w, u + half + 1)
+    roi = depth_u16[v0:v1, u0:u1]
+    valid = roi[roi > 0]
+    if len(valid) == 0:
+        return None
+    return float(np.median(valid)) * depth_scale / 1000.0
+
+
+def pixel_to_camera_point(u: int, v: int, depth_m: float, intrinsics: dict) -> np.ndarray:
+    x = (u - intrinsics["cx"]) * depth_m / intrinsics["fx"]
+    y = (v - intrinsics["cy"]) * depth_m / intrinsics["fy"]
+    return np.array([x, y, depth_m], dtype=np.float64)
+
+
+def depth_to_colormap(depth_u16: np.ndarray, depth_scale: float) -> np.ndarray:
+    depth_mm = depth_u16.astype(np.float32) * depth_scale
+    valid_mask = depth_mm > 0
+    if not np.any(valid_mask):
+        return np.zeros((*depth_u16.shape, 3), dtype=np.uint8)
+    max_mm = float(np.percentile(depth_mm[valid_mask], 98))
+    normalized = np.clip(depth_mm / max(max_mm, 1.0), 0, 1)
+    gray = (normalized * 255).astype(np.uint8)
+    colored = cv2.applyColorMap(gray, cv2.COLORMAP_TURBO)
+    colored[~valid_mask] = 0
+    return colored
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Capture RGBD scan and locate objects")
+    parser.add_argument("--handeye", required=True, help="Path to handeye_result.json")
+    parser.add_argument("--output-dir", default=".", help="Directory to save outputs")
+    parser.add_argument("--scan-height", type=float, default=0.0,
+                        help="If > 0, lift arm to this Z height (metres) before scanning")
+    parser.add_argument("--pixel-coords", type=str, default=None,
+                        help='Comma-separated "name:u:v" entries, e.g. "bottle:500:300,board:200:400"')
+    args = parser.parse_args()
+
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    handeye = load_handeye(args.handeye)
+    robot = connect_robot()
+
+    if args.scan_height > 0:
+        from safe_motion import safe_lift
+        print(f"Lifting arm to Z={args.scan_height:.3f} m ...")
+        safe_lift(robot, height_m=args.scan_height)
+
+    flange_msg = robot.get_flange_pose()
+    if flange_msg is None or flange_msg.msg is None:
+        raise RuntimeError("Flange pose unavailable")
+    flange_pose = np.array(flange_msg.msg[:6], dtype=np.float64)
+    base_T_flange = pose_to_transform(flange_pose)
+    base_T_camera = base_T_flange @ handeye["flange_T_camera_np"]
+
+    print("Capturing aligned RGBD ...")
+    color_bgr, depth_u16, depth_scale, intrinsics = capture_aligned_rgbd()
+
+    color_path = out_dir / "scan_color.jpg"
+    depth_path = out_dir / "scan_depth.jpg"
+    cv2.imwrite(str(color_path), color_bgr)
+    cv2.imwrite(str(depth_path), depth_to_colormap(depth_u16, depth_scale))
+    print(f"Saved {color_path}")
+    print(f"Saved {depth_path}")
+
+    camera_z_mm = float(base_T_camera[2, 3]) * 1000.0
+    print(f"Camera height above base: {camera_z_mm:.1f} mm")
+
+    output = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "scan_pose_flange": flange_pose.tolist(),
+        "camera_height_mm": round(camera_z_mm, 1),
+        "objects": {},
+    }
+
+    if args.pixel_coords:
+        coords = parse_pixel_coords(args.pixel_coords)
+        for name, (u, v) in coords.items():
+            depth_m = depth_at_pixel(depth_u16, u, v, depth_scale)
+            if depth_m is None or depth_m <= 0:
+                print(f"  {name}: pixel ({u},{v}) — no valid depth, skipping")
+                continue
+
+            p_cam = pixel_to_camera_point(u, v, depth_m, intrinsics)
+            p_cam_h = np.array([*p_cam, 1.0])
+            p_base = (base_T_camera @ p_cam_h)[:3]
+
+            depth_mm = round(depth_m * 1000.0, 1)
+            output["objects"][name] = {
+                "pixel_uv": [u, v],
+                "depth_mm": depth_mm,
+                "base_xyz_m": [round(float(c), 5) for c in p_base],
+            }
+            print(f"  {name}: pixel ({u},{v}), depth {depth_mm:.1f} mm, "
+                  f"base [{p_base[0]:.4f}, {p_base[1]:.4f}, {p_base[2]:.4f}] m")
+
+    objects_path = out_dir / "objects.json"
+    objects_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
+    print(f"Saved {objects_path}")
+
+    if not args.pixel_coords:
+        print(
+            f"\nNo --pixel-coords provided. Inspect {color_path} to identify objects,\n"
+            f"then re-run with --pixel-coords 'name1:u1:v1,name2:u2:v2'"
+        )
+    else:
+        print(f"\n{len(output['objects'])} object(s) located in base frame.")
+
+
+if __name__ == "__main__":
+    main()

@@ -4,24 +4,72 @@ from typing import Any
 
 NUM_JOINTS = 7
 
+# Match pyAgxArm create_agx_arm_config(robot="nero") joint_limits (radians).
+JOINT_LIMITS_RAD: list[tuple[float, float]] = [
+    (-2.705261, 2.705261),   # J1
+    (-1.745330, 1.745330),   # J2
+    (-2.757621, 2.757621),   # J3
+    (-1.012291, 2.146755),   # J4
+    (-2.757621, 2.757621),   # J5
+    (-0.733039, 0.959932),   # J6
+    (-1.570797, 1.570797),   # J7
+]
+
 JOINT_LIMITS_DEG: list[tuple[float, float]] = [
-    (-175.0, 175.0),   # J1
-    (-175.0, 175.0),   # J2
-    (-175.0, 175.0),   # J3
-    (-175.0, 175.0),   # J4
-    (-175.0, 175.0),   # J5
-    (-175.0, 175.0),   # J6
-    (-175.0, 175.0),   # J7
+    (-155.0, 155.0),    # J1
+    (-100.0, 100.0),    # J2
+    (-158.0, 158.0),    # J3
+    (-58.0, 123.0),     # J4
+    (-158.0, 158.0),    # J5
+    (-42.0, 55.0),      # J6
+    (-90.0, 90.0),      # J7
 ]
 
 HOME_ANGLES_DEG: list[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
+# From pyAgxArm NERO driver ArmMsgFeedbackStatus (arm_status field).
+ARM_STATUS_CODES: dict[int, str] = {
+    0: "normal",
+    1: "emergency_stop",
+    2: "no_ik_solution",
+    3: "singularity",
+    4: "target_over_limit",
+    5: "joint_comm_error",
+    6: "joint_brake_not_released",
+    7: "collision",
+    8: "overspeed_teaching_drag",
+    9: "joint_status_abnormal",
+    10: "other_exception",
+    11: "teaching_record",
+    12: "teaching_execute",
+    13: "teaching_pause",
+    14: "main_controller_ntc_over_temp",
+    15: "release_resistor_ntc_over_temp",
+}
+
+# Abort motion / planning when controller reports these arm_status values.
+FATAL_ARM_STATUS_CODES = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+
+
+def arm_status_label(code: int) -> str:
+    """Human-readable label for arm_status integer from get_arm_status()."""
+    return ARM_STATUS_CODES.get(code, f"unknown_{code}")
+
 
 def clamp_joints(angles_deg: list[float]) -> list[float]:
-    """Clamp each joint angle to its safe operating range."""
+    """Clamp each joint angle to its safe operating range (degrees)."""
     clamped = []
     for i, a in enumerate(angles_deg):
-        lo, hi = JOINT_LIMITS_DEG[i] if i < len(JOINT_LIMITS_DEG) else (-175.0, 175.0)
+        lo, hi = JOINT_LIMITS_DEG[i] if i < len(JOINT_LIMITS_DEG) else (-90.0, 90.0)
+        clamped.append(max(lo, min(hi, a)))
+    return clamped
+
+
+def clamp_joints_rad(angles_rad: list[float]) -> list[float]:
+    """Clamp each joint angle to SDK NERO limits (radians)."""
+    clamped = []
+    for i, a in enumerate(angles_rad):
+        lo, hi = JOINT_LIMITS_RAD[i] if i < len(JOINT_LIMITS_RAD) else (-3.14, 3.14)
         clamped.append(max(lo, min(hi, a)))
     return clamped
 
