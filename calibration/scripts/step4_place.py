@@ -14,10 +14,44 @@ from handeye_board_runtime import connect_robot, load_handeye, load_tcp_offset
 from safe_motion import (
     check_target_safe,
     get_current_pose,
-    safe_lift,
     safe_move_to,
     wait_move_done,
 )
+
+
+def lift_straight_up(robot, target_height_m: float, speed_pct: int, tcp_offset: list[float] | None) -> None:
+    """Raise straight up in base Z after release.
+
+    This avoids any horizontal retreat immediately after opening the gripper.
+    """
+    if tcp_offset:
+        current_tcp = robot.get_tcp_pose()
+        if current_tcp is None or current_tcp.msg is None:
+            raise RuntimeError("TCP pose unavailable for post-release lift")
+        lift_pose = list(current_tcp.msg[:6])
+        current_z = float(lift_pose[2])
+        if current_z >= target_height_m - 0.001:
+            print(f"[step4] Post-release lift skipped: TCP Z={current_z:.4f} m >= {target_height_m:.4f} m")
+            return
+        lift_pose[2] = target_height_m
+        flange_target = robot.get_tcp2flange_pose(lift_pose)
+    else:
+        current_flange = get_current_pose(robot)
+        current_z = float(current_flange[2])
+        if current_z >= target_height_m - 0.001:
+            print(f"[step4] Post-release lift skipped: flange Z={current_z:.4f} m >= {target_height_m:.4f} m")
+            return
+        lift_pose = current_flange.copy()
+        lift_pose[2] = target_height_m
+        flange_target = lift_pose.tolist()
+
+    check_target_safe(flange_target)
+
+    print(f"[step4] Lifting straight up to Z={target_height_m:.4f} m (move_l) ...")
+    robot.set_speed_percent(speed_pct)
+    time.sleep(0.05)
+    robot.move_l(flange_target)
+    wait_move_done(robot, flange_target[:3])
 
 
 def main():
@@ -68,6 +102,9 @@ def main():
         current_rpy = get_current_pose(robot)[3:6].tolist()
 
     z_safe = args.z_safe_mm / 1000.0
+    if z_safe < 0.05:
+        raise RuntimeError(f"[step4] z-safe-mm={args.z_safe_mm} results in "
+                           f"Z={z_safe:.4f} m, below 50 mm safety minimum")
     above_pose = [dest_xyz[0], dest_xyz[1], z_safe, *current_rpy]
     if tcp_offset:
         flange_above = robot.get_tcp2flange_pose(above_pose)
@@ -104,8 +141,10 @@ def main():
     time.sleep(1.5)   # wait for gripper to open
     time.sleep(0.8)   # extra settle: let arm stabilize after load change
 
-    print("[step4] Lifting away ...")
-    safe_lift(robot, height_m=0.25)
+    # Ensure a meaningful vertical clearance before any joint-space retreat.
+    post_release_z = max(z_safe, place_z + 0.05)
+    print("[step4] Lifting away vertically after release ...")
+    lift_straight_up(robot, target_height_m=post_release_z, speed_pct=args.speed, tcp_offset=tcp_offset)
 
     print("[step4] Moving to home position ...")
     robot.set_speed_percent(args.speed)

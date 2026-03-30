@@ -398,10 +398,118 @@ def capture_live_board_result_with_robot(
 # Depth-fused board detection (Orbbec SDK RGBD)
 # ---------------------------------------------------------------------------
 
+class PersistentAlignedRGBDCapture:
+    """Keep a single Orbbec pipeline alive for repeated aligned RGBD captures."""
+
+    def __init__(
+        self,
+        warmup_frames: int = 15,
+        timeout_ms: int = 1000,
+        settle_s: float = 2.0,
+        flush_frames: int = 2,
+    ):
+        self.warmup_frames = int(warmup_frames)
+        self.timeout_ms = int(timeout_ms)
+        self.settle_s = float(settle_s)
+        self.flush_frames = max(int(flush_frames), 0)
+
+        self._ctx = None
+        self._pipe = None
+        self._align_filter = None
+        self._intrinsics = None
+        self._started = False
+
+    def start(self):
+        if self._started:
+            return self
+        if not _HAS_ORBBECSDK:
+            raise RuntimeError("pyorbbecsdk is not installed")
+
+        self._ctx = Context()
+        dev_list = self._ctx.query_devices()
+        if len(dev_list) == 0:
+            raise RuntimeError("No Orbbec device found")
+
+        dev = dev_list[0]
+        self._pipe = Pipeline(dev)
+        config = Config()
+
+        cp = self._pipe.get_stream_profile_list(OBSensorType.COLOR_SENSOR).get_default_video_stream_profile()
+        dp = self._pipe.get_stream_profile_list(OBSensorType.DEPTH_SENSOR).get_default_video_stream_profile()
+        config.enable_stream(cp)
+        config.enable_stream(dp)
+        self._align_filter = AlignFilter(OBStreamType.COLOR_STREAM)
+
+        self._pipe.start(config)
+        time.sleep(self.settle_s)
+
+        cam_param = self._pipe.get_camera_param()
+        ci = cam_param.rgb_intrinsic
+        self._intrinsics = {
+            "fx": ci.fx,
+            "fy": ci.fy,
+            "cx": ci.cx,
+            "cy": ci.cy,
+            "width": ci.width,
+            "height": ci.height,
+        }
+
+        for _ in range(self.warmup_frames):
+            self._pipe.wait_for_frames(self.timeout_ms)
+
+        self._started = True
+        return self
+
+    def capture(self, flush_frames: int | None = None) -> tuple[np.ndarray, np.ndarray, float, dict]:
+        if not self._started:
+            self.start()
+
+        flush_count = self.flush_frames if flush_frames is None else max(int(flush_frames), 0)
+        for _ in range(flush_count):
+            self._pipe.wait_for_frames(self.timeout_ms)
+
+        frameset = self._pipe.wait_for_frames(self.timeout_ms)
+        if frameset is None:
+            raise RuntimeError("Timed out waiting for RGBD frames")
+
+        aligned = self._align_filter.process(frameset)
+        color_frame = aligned.get_color_frame()
+        depth_frame = aligned.get_depth_frame()
+        if color_frame is None or depth_frame is None:
+            raise RuntimeError("Aligned RGBD frames unavailable")
+
+        color_data = np.frombuffer(color_frame.get_data(), dtype=np.uint8)
+        color_img = cv2.imdecode(color_data, cv2.IMREAD_COLOR)
+        if color_img is None:
+            raise RuntimeError("Failed to decode Orbbec color frame")
+
+        depth_raw = np.frombuffer(depth_frame.get_data(), dtype=np.uint16)
+        depth_img = depth_raw.reshape(depth_frame.get_height(), depth_frame.get_width())
+        depth_scale = depth_frame.get_depth_scale()
+        return color_img, depth_img, depth_scale, dict(self._intrinsics)
+
+    def stop(self) -> None:
+        if self._pipe is not None and self._started:
+            self._pipe.stop()
+        self._ctx = None
+        self._pipe = None
+        self._align_filter = None
+        self._intrinsics = None
+        self._started = False
+
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc, tb):
+        self.stop()
+        return False
+
+
 def capture_aligned_rgbd(
     warmup_frames: int = 15,
     timeout_ms: int = 1000,
     settle_s: float = 2.0,
+    flush_frames: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, float, dict]:
     """Capture aligned color + depth frames via Orbbec SDK.
 
@@ -410,50 +518,13 @@ def capture_aligned_rgbd(
     ``intrinsics_dict`` contains the SDK-reported RGB intrinsics
     (fx, fy, cx, cy, width, height).
     """
-    if not _HAS_ORBBECSDK:
-        raise RuntimeError("pyorbbecsdk is not installed")
-
-    ctx = Context()
-    dev_list = ctx.query_devices()
-    if len(dev_list) == 0:
-        raise RuntimeError("No Orbbec device found")
-    dev = dev_list[0]
-    pipe = Pipeline(dev)
-    config = Config()
-
-    cp = pipe.get_stream_profile_list(OBSensorType.COLOR_SENSOR).get_default_video_stream_profile()
-    dp = pipe.get_stream_profile_list(OBSensorType.DEPTH_SENSOR).get_default_video_stream_profile()
-    config.enable_stream(cp)
-    config.enable_stream(dp)
-    align_filter = AlignFilter(OBStreamType.COLOR_STREAM)
-
-    pipe.start(config)
-    time.sleep(settle_s)
-
-    cam_param = pipe.get_camera_param()
-    ci = cam_param.rgb_intrinsic
-    intrinsics = {
-        "fx": ci.fx, "fy": ci.fy,
-        "cx": ci.cx, "cy": ci.cy,
-        "width": ci.width, "height": ci.height,
-    }
-
-    for _ in range(warmup_frames):
-        pipe.wait_for_frames(timeout_ms)
-    frameset = pipe.wait_for_frames(timeout_ms)
-    aligned = align_filter.process(frameset)
-
-    color_frame = aligned.get_color_frame()
-    depth_frame = aligned.get_depth_frame()
-
-    color_data = np.frombuffer(color_frame.get_data(), dtype=np.uint8)
-    color_img = cv2.imdecode(color_data, cv2.IMREAD_COLOR)
-    depth_raw = np.frombuffer(depth_frame.get_data(), dtype=np.uint16)
-    depth_img = depth_raw.reshape(depth_frame.get_height(), depth_frame.get_width())
-    depth_scale = depth_frame.get_depth_scale()
-
-    pipe.stop()
-    return color_img, depth_img, depth_scale, intrinsics
+    with PersistentAlignedRGBDCapture(
+        warmup_frames=warmup_frames,
+        timeout_ms=timeout_ms,
+        settle_s=settle_s,
+        flush_frames=flush_frames,
+    ) as camera:
+        return camera.capture(flush_frames=flush_frames)
 
 
 def detect_board_pose_depth_fused(
