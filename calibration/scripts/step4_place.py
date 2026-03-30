@@ -54,56 +54,33 @@ def lift_straight_up(robot, target_height_m: float, speed_pct: int, tcp_offset: 
     wait_move_done(robot, flange_target[:3])
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Place object at destination")
-    parser.add_argument("--objects", required=True, help="Path to objects.json")
-    parser.add_argument("--destination", required=True,
-                        help="Destination object key in objects.json (e.g. 'blue_board')")
-    parser.add_argument("--handeye", required=True, help="Path to handeye_result.json")
-    parser.add_argument("--tcp", default=None, help="Path to TCP offset JSON")
-    parser.add_argument("--place-z-mm", type=float, default=50,
-                        help="Absolute Z height in base frame (mm) for placement")
-    parser.add_argument("--z-safe-mm", type=float, default=300,
-                        help="Transit height in mm for horizontal moves (default 300 mm)")
-    parser.add_argument("--speed", type=int, default=10, help="Robot speed percent")
-    args = parser.parse_args()
-
+def place_object(
+    robot,
+    effector,
+    args,
+    tcp_offset: list[float] | None,
+    destination: str,
+    place_z_mm: float,
+    z_safe_mm: float,
+) -> dict:
     print(f"[step4] Loading objects from {args.objects}")
     objects_data = json.loads(Path(args.objects).read_text(encoding="utf-8"))
-    if args.destination not in objects_data["objects"]:
+    if destination not in objects_data["objects"]:
         available = list(objects_data["objects"].keys())
-        raise RuntimeError(f"Destination '{args.destination}' not found. Available: {available}")
+        raise RuntimeError(f"Destination '{destination}' not found. Available: {available}")
 
-    dest_xyz = objects_data["objects"][args.destination]["base_xyz_m"]
-    print(f"[step4] Destination '{args.destination}' at base "
+    dest_xyz = objects_data["objects"][destination]["base_xyz_m"]
+    print(f"[step4] Destination '{destination}' at base "
           f"[{dest_xyz[0]:.4f}, {dest_xyz[1]:.4f}, {dest_xyz[2]:.4f}] m")
-
-    load_handeye(args.handeye)
-
-    print("[step4] Connecting to robot ...")
-    robot = connect_robot()
-    robot.enable()
-    robot.set_speed_percent(args.speed)
-    time.sleep(0.1)
-
-    tcp_offset = None
-    if args.tcp:
-        tcp_offset = load_tcp_offset(args.tcp)
-        robot.set_tcp_offset(tcp_offset)
-        print(f"[step4] TCP offset set: {[round(v, 5) for v in tcp_offset]}")
-        time.sleep(0.2)
-
-    print("[step4] Initializing gripper ...")
-    effector = robot.init_effector(robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
 
     if tcp_offset:
         current_rpy = list(robot.get_tcp_pose().msg[3:6])
     else:
         current_rpy = get_current_pose(robot)[3:6].tolist()
 
-    z_safe = args.z_safe_mm / 1000.0
+    z_safe = z_safe_mm / 1000.0
     if z_safe < 0.05:
-        raise RuntimeError(f"[step4] z-safe-mm={args.z_safe_mm} results in "
+        raise RuntimeError(f"[step4] z-safe-mm={z_safe_mm} results in "
                            f"Z={z_safe:.4f} m, below 50 mm safety minimum")
     above_pose = [dest_xyz[0], dest_xyz[1], z_safe, *current_rpy]
     if tcp_offset:
@@ -121,7 +98,7 @@ def main():
     else:
         current_rpy = get_current_pose(robot)[3:6].tolist()
 
-    place_z = args.place_z_mm / 1000.0
+    place_z = place_z_mm / 1000.0
     place_pose = [dest_xyz[0], dest_xyz[1], place_z, *current_rpy]
     if tcp_offset:
         flange_place = robot.get_tcp2flange_pose(place_pose)
@@ -164,6 +141,142 @@ def main():
         print("[step4] WARNING: Joint move to home timed out")
 
     print("[step4] Pick-and-place complete!")
+    return {
+        "destination": destination,
+        "place_z_mm": place_z_mm,
+        "z_safe_mm": z_safe_mm,
+        "dest_xyz": dest_xyz,
+    }
+
+
+def print_persistent_help(default_destination: str, default_place_z_mm: float, default_z_safe_mm: float) -> None:
+    print(
+        "\n[persistent] Commands:\n"
+        f"  <enter> or place                           Place at {default_destination} using Z={default_place_z_mm:.0f} mm\n"
+        "  place <destination>                        Place at another destination using current heights\n"
+        "  place <destination> <place-z-mm>          Place with a new drop height\n"
+        "  place <destination> <place-z-mm> <z-safe-mm>\n"
+        "                                            Place with a new drop and transit height\n"
+        "  help                                       Show this help\n"
+        "  quit                                       Exit persistent mode"
+    )
+
+
+def parse_place_command(
+    raw: str,
+    default_destination: str,
+    default_place_z_mm: float,
+    default_z_safe_mm: float,
+) -> tuple[str, float, float]:
+    if raw in {"", "place"}:
+        return default_destination, default_place_z_mm, default_z_safe_mm
+
+    parts = raw.split()
+    if parts[0] != "place":
+        raise ValueError("Unknown command")
+    if len(parts) == 2:
+        return parts[1], default_place_z_mm, default_z_safe_mm
+    if len(parts) == 3:
+        return parts[1], float(parts[2]), default_z_safe_mm
+    if len(parts) == 4:
+        return parts[1], float(parts[2]), float(parts[3])
+    raise ValueError("Usage: place [destination] [place-z-mm] [z-safe-mm]")
+
+
+def run_persistent_session(args) -> None:
+    load_handeye(args.handeye)
+
+    print("[step4] Connecting to robot ...")
+    robot = connect_robot()
+    robot.enable()
+    robot.set_speed_percent(args.speed)
+    time.sleep(0.1)
+
+    tcp_offset = None
+    if args.tcp:
+        tcp_offset = load_tcp_offset(args.tcp)
+        robot.set_tcp_offset(tcp_offset)
+        print(f"[step4] TCP offset set: {[round(v, 5) for v in tcp_offset]}")
+        time.sleep(0.2)
+
+    print("[step4] Initializing gripper ...")
+    effector = robot.init_effector(robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
+
+    current_destination = args.destination
+    current_place_z_mm = args.place_z_mm
+    current_z_safe_mm = args.z_safe_mm
+    print_persistent_help(current_destination, current_place_z_mm, current_z_safe_mm)
+
+    while True:
+        try:
+            raw = input("\n[persistent] command> ").strip()
+        except EOFError:
+            print("\n[persistent] EOF received, exiting.")
+            break
+
+        if raw in {"quit", "q", "exit"}:
+            print("[persistent] Exiting.")
+            break
+        if raw in {"help", "?"}:
+            print_persistent_help(current_destination, current_place_z_mm, current_z_safe_mm)
+            continue
+
+        try:
+            destination, place_z_mm, z_safe_mm = parse_place_command(
+                raw,
+                current_destination,
+                current_place_z_mm,
+                current_z_safe_mm,
+            )
+            place_object(robot, effector, args, tcp_offset, destination, place_z_mm, z_safe_mm)
+            current_destination = destination
+            current_place_z_mm = place_z_mm
+            current_z_safe_mm = z_safe_mm
+        except Exception as exc:
+            print(f"[persistent] ERROR: {exc}")
+
+
+def run_single(args) -> None:
+    load_handeye(args.handeye)
+
+    print("[step4] Connecting to robot ...")
+    robot = connect_robot()
+    robot.enable()
+    robot.set_speed_percent(args.speed)
+    time.sleep(0.1)
+
+    tcp_offset = None
+    if args.tcp:
+        tcp_offset = load_tcp_offset(args.tcp)
+        robot.set_tcp_offset(tcp_offset)
+        print(f"[step4] TCP offset set: {[round(v, 5) for v in tcp_offset]}")
+        time.sleep(0.2)
+
+    print("[step4] Initializing gripper ...")
+    effector = robot.init_effector(robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
+    place_object(robot, effector, args, tcp_offset, args.destination, args.place_z_mm, args.z_safe_mm)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Place object at destination")
+    parser.add_argument("--objects", required=True, help="Path to objects.json")
+    parser.add_argument("--destination", required=True,
+                        help="Destination object key in objects.json (e.g. 'blue_board')")
+    parser.add_argument("--handeye", required=True, help="Path to handeye_result.json")
+    parser.add_argument("--tcp", default=None, help="Path to TCP offset JSON")
+    parser.add_argument("--place-z-mm", type=float, default=50,
+                        help="Absolute Z height in base frame (mm) for placement")
+    parser.add_argument("--z-safe-mm", type=float, default=300,
+                        help="Transit height in mm for horizontal moves (default 300 mm)")
+    parser.add_argument("--speed", type=int, default=10, help="Robot speed percent")
+    parser.add_argument("--persistent", action="store_true",
+                        help="Keep robot connection alive for repeated place commands")
+    args = parser.parse_args()
+
+    if args.persistent:
+        run_persistent_session(args)
+    else:
+        run_single(args)
 
 
 if __name__ == "__main__":
