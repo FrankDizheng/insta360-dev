@@ -29,6 +29,8 @@ def main():
     parser.add_argument("--tcp", default=None, help="Path to TCP offset JSON")
     parser.add_argument("--place-z-mm", type=float, default=50,
                         help="Absolute Z height in base frame (mm) for placement")
+    parser.add_argument("--z-safe-mm", type=float, default=300,
+                        help="Transit height in mm for horizontal moves (default 300 mm)")
     parser.add_argument("--speed", type=int, default=10, help="Robot speed percent")
     args = parser.parse_args()
 
@@ -65,7 +67,7 @@ def main():
     else:
         current_rpy = get_current_pose(robot)[3:6].tolist()
 
-    z_safe = 0.30
+    z_safe = args.z_safe_mm / 1000.0
     above_pose = [dest_xyz[0], dest_xyz[1], z_safe, *current_rpy]
     if tcp_offset:
         flange_above = robot.get_tcp2flange_pose(above_pose)
@@ -74,7 +76,7 @@ def main():
 
     check_target_safe(flange_above)
 
-    print(f"[step4] Moving above destination (speed={args.speed}%) ...")
+    print(f"[step4] Moving above destination (speed={args.speed}%, z_safe={z_safe:.3f} m) ...")
     safe_move_to(robot, flange_above, z_safe_m=z_safe, speed_pct=args.speed)
 
     if tcp_offset:
@@ -99,7 +101,8 @@ def main():
 
     print("[step4] Opening gripper to release ...")
     effector.move_gripper(width=0.06, force=1.0)
-    time.sleep(1.5)
+    time.sleep(1.5)   # wait for gripper to open
+    time.sleep(0.8)   # extra settle: let arm stabilize after load change
 
     print("[step4] Lifting away ...")
     safe_lift(robot, height_m=0.25)
