@@ -169,7 +169,20 @@ def run_persistent_session(args) -> None:
                 current_grasp_z_mm,
                 current_lift_z_mm,
             )
-            grasp_object(robot, effector, args, tcp_offset, object_name, grasp_z_mm, lift_z_mm)
+            retry_steps = getattr(args, "grasp_z_retry_count", 0)
+            retry_step_mm = getattr(args, "grasp_z_retry_step_mm", 15.0)
+            for attempt in range(retry_steps + 1):
+                z_try = grasp_z_mm + attempt * retry_step_mm
+                if attempt > 0:
+                    print(f"[persistent] IK failed, retrying at Z={z_try:.0f} mm "
+                          f"(attempt {attempt + 1}/{retry_steps + 1})")
+                try:
+                    grasp_object(robot, effector, args, tcp_offset, object_name, z_try, lift_z_mm)
+                    break
+                except RuntimeError as exc:
+                    if "no_ik_solution" in str(exc) and attempt < retry_steps:
+                        continue
+                    raise
             current_object_name = object_name
             current_grasp_z_mm = grasp_z_mm
             current_lift_z_mm = lift_z_mm
@@ -195,7 +208,20 @@ def run_single(args) -> None:
 
     print("[step3] Initializing gripper ...")
     effector = robot.init_effector(robot.OPTIONS.EFFECTOR.AGX_GRIPPER)
-    grasp_object(robot, effector, args, tcp_offset, args.object_name, args.grasp_z_mm, args.lift_z_mm)
+    retry_steps = getattr(args, "grasp_z_retry_count", 0)
+    retry_step_mm = getattr(args, "grasp_z_retry_step_mm", 15.0)
+    for attempt in range(retry_steps + 1):
+        z_try = args.grasp_z_mm + attempt * retry_step_mm
+        if attempt > 0:
+            print(f"[step3] IK failed at previous height, retrying at Z={z_try:.0f} mm "
+                  f"(attempt {attempt + 1}/{retry_steps + 1})")
+        try:
+            grasp_object(robot, effector, args, tcp_offset, args.object_name, z_try, args.lift_z_mm)
+            break
+        except RuntimeError as exc:
+            if "no_ik_solution" in str(exc) and attempt < retry_steps:
+                continue
+            raise
 
 
 def main():
@@ -206,6 +232,10 @@ def main():
     parser.add_argument("--tcp", default=None, help="Path to TCP offset JSON")
     parser.add_argument("--grasp-z-mm", type=float, default=50,
                         help="Absolute Z height in base frame (mm) for grasping")
+    parser.add_argument("--grasp-z-retry-step-mm", type=float, default=15.0,
+                        help="If IK fails at grasp-z-mm, retry this many mm higher each attempt")
+    parser.add_argument("--grasp-z-retry-count", type=int, default=2,
+                        help="Number of upward retry steps on IK failure (default 2: tries +15, +30 mm)")
     parser.add_argument("--lift-z-mm", type=float, default=250,
                         help="Absolute Z height in base frame (mm) after grasp lift")
     parser.add_argument("--gripper-width", type=float, default=0.05,

@@ -45,8 +45,8 @@ def move_above_object(robot, args, tcp_offset: list[float] | None, object_name: 
 
     check_target_safe(flange_target)
 
-    print(f"[step2] Moving to standoff (speed={args.speed}%) ...")
-    safe_move_to(robot, flange_target, z_safe_m=0.30, speed_pct=args.speed)
+    print(f"[step2] Moving to standoff (speed={args.speed}%, tol={args.tol_mm:.0f} mm) ...")
+    safe_move_to(robot, flange_target, z_safe_m=0.30, speed_pct=args.speed, tol_mm=args.tol_mm)
 
     final_flange = get_current_pose(robot)
     if tcp_offset:
@@ -168,6 +168,9 @@ def main():
     parser.add_argument("--tcp", default=None, help="Path to TCP offset JSON")
     parser.add_argument("--standoff-mm", type=float, default=100, help="Height above object in mm")
     parser.add_argument("--speed", type=int, default=10, help="Robot speed percent")
+    parser.add_argument("--tol-mm", type=float, default=15.0,
+                        help="Position tolerance for completion check (mm). "
+                             "Default 15 mm is appropriate for a standoff approach.")
     parser.add_argument("--persistent", action="store_true",
                         help="Keep robot connection alive for repeated move-above commands")
     args = parser.parse_args()

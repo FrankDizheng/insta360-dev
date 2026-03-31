@@ -119,8 +119,12 @@ def safe_move_to(
     z_safe_m: float = 0.30,
     z_min_m: float = 0.05,
     speed_pct: int = 10,
+    tol_mm: float = 1.0,
 ) -> np.ndarray:
     """Three-phase safe move: lift -> transit horizontally -> lower.
+
+    tol_mm: position tolerance for completion check. Raise this (e.g. 15 mm)
+    for standoff/approach moves where sub-millimetre accuracy is unnecessary.
 
     Returns the final flange pose.
     """
@@ -164,7 +168,7 @@ def safe_move_to(
     robot.set_speed_percent(speed_pct)
     time.sleep(0.05)
     robot.move_p(transit_pose.tolist())
-    wait_move_done(robot, transit_pose[:3])
+    wait_move_done(robot, transit_pose[:3], tol_mm=tol_mm)
 
     # Phase 3: lower to target Z with linear move
     if abs(transit_pose[2] - target[2]) > 0.001:
@@ -172,7 +176,7 @@ def safe_move_to(
         robot.set_speed_percent(speed_pct)
         time.sleep(0.05)
         robot.move_l(target.tolist())
-        wait_move_done(robot, target[:3])
+        wait_move_done(robot, target[:3], tol_mm=tol_mm)
     else:
         print(f"{_TAG} Phase 3: already at target Z, skipping")
 
