@@ -18,16 +18,36 @@
 
 ### 2. 安装依赖
 
-```bash
-cd python
-pip install -r requirements.txt
+以下命令默认从包含 `insta360-dev/` 的工作区根目录执行：
+
+```powershell
+python -m venv .venv
+& ".\.venv\Scripts\python.exe" -m pip install -r ".\insta360-dev\python\requirements.txt"
 ```
 
 ### 3. 测试连接
 
-```bash
-cd python/examples
-python 01_connect.py
+```powershell
+& ".\.venv\Scripts\python.exe" ".\insta360-dev\python\examples\01_connect.py"
+```
+
+### 4. 本地抓放会话（Windows / PowerShell）
+
+如果你在本仓库根目录的上一级工作区使用本地抓放流程，可以直接运行：
+
+```powershell
+& ".\insta360-dev\calibration\scripts\setup_local_env.ps1"
+& ".\insta360-dev\calibration\scripts\run_pick_place_session_local.ps1"
+```
+
+启动后可在交互会话里使用：
+
+```text
+scan
+suggest
+auto
+pick bottle
+place blue_board
 ```
 
 成功输出示例：

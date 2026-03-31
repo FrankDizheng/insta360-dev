@@ -1,0 +1,16 @@
+[Unit]
+Description=NERO Robot Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+WorkingDirectory=__WORKING_DIRECTORY__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__PYTHON_BIN__ -u __SCRIPT_PATH__ --host __HOST__ --port __PORT__
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

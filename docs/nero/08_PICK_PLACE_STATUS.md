@@ -1,14 +1,58 @@
 ---
 
-# 白瓶抓放现状（2026-03-30）
+# 白瓶抓放现状（2026-03-31）
 
 ## 1. 当前结论
 
 - 当前场景下，"白色瓶子抓起并放到蓝色区域" 已经成功跑通。
+- 当前推荐保留的是本地 `pick_place_session.py` 会话流程：`scan -> auto -> pick bottle -> place blue_board`。
 - 本轮耗时偏大的主因不在推理，当前 `step1 -> step4` 链路没有走 VLM 决策；瓶颈主要在相机采集、重复建连、人工选点和运动参数试探。
 - 树莓派仍应只负责 SDK / 相机 / CAN / 执行，推理应放在本地或独立算力机。
 
-## 2. 本轮成功参数
+## 2. 当前可复现参数（2026-03-31，本地会话）
+
+- 会话脚本：`calibration/scripts/pick_place_session.py`
+- PowerShell 包装脚本：`calibration/scripts/run_pick_place_session_local.ps1`
+- TCP：`calibration/results/session1/gripper_tcp_left_front_tip_samples_004_006.json`
+- 固定扫描位：`SCAN_POSE_DEG = [-19.4, 10.7, 4.6, 63.0, 7.1, 1.4, 56.6]`
+- 交互流程：`scan -> auto -> pick bottle -> place blue_board`
+- 本轮自动识别得到的目标（最后一次成功放置前）：
+  - `bottle: pixel 272:456`
+  - `blue_board: pixel 848:446`
+- 抓放参数：
+  - `standoff-mm 80`
+  - `grasp-z-mm 285`
+  - `lift-z-mm 400`
+  - `place-z-mm 295`
+  - `z-safe-mm 400`
+- 本轮验证通过的抓取补偿：
+  - `pick-local-x-offset-mm 0`
+  - `pick-local-y-offset-mm 10`
+  - `pick-local-z-offset-mm 30`
+- 重要说明：
+  - `pick-local-y-offset-mm 10` 用于让夹爪相对瓶身"更往前吃进去一点"。
+  - `pick-local-z-offset-mm 30` 是当前工具局部坐标系下的侧向补偿，用于修正左右对齐；它不是基座竖直 `Z` 下压。
+- 现场验证结果：
+  - 侧视图确认瓶身进入夹爪长度已明显增加，抓取深度足够。
+  - 保持上述参数后，瓶子成功抓起并放到蓝色区域。
+  - 放置后夹爪张开，机械臂沿 `Z` 轴抬起离开目标。
+
+## 3. 2026-03-31 最新补充验证
+
+- 对同一白色不透明瓶，以上参数已经重复成功多次；在需要连续拍视频时，也可以直接复用上一次保存的 `bottle` / `blue_board` 坐标，绕过重新扫描，直接执行整套抓放。
+- 现场还验证了一个更快的执行路径：停止 `robot_server` 后，改用树莓派 SDK 直连做单次 `pick -> place`，可以避开 bridge 层偶发的状态锁存，动作连续性更好。
+- 但 bridge 层仍有一个待解问题：某些失败动作之后，`robot_server` 读到的 `arm_status_code` 会停留在 `2 (no_ik_solution)`，即使机械臂物理上已经回到安全姿态。当前可行恢复方法是：
+  - 先通过 SSH 直连 SDK 执行 `set_normal_mode()`、`enable()`，必要时 `move_j` 回扫描位
+  - 然后再重启 `robot_server`
+- 对新换上的透明白瓶，当前这套自动/半自动抓取方法还不稳定：
+  - `auto` 容易把抓点漂到瓶盖附近
+  - 透明瓶身的深度读数波动明显，瓶身中下部多个像素会出现 `10-15 mm` 级别的 Z 漂移
+  - 一次手工选取瓶身点后的完整抓放动作虽然执行完了，但闭爪宽度只有约 `0.0057 m`，后续复核扫描确认瓶子仍留在原区域，没有真正搬运到蓝板
+- 当前结论：
+  - 白色不透明瓶：流程可复现
+  - 透明白瓶：还需要单独设计抓点选择策略，不能直接沿用当前 `auto` 逻辑
+
+## 4. 历史成功参数（旧 `step1 -> step4` 流程）
 
 - 固定扫描位：`SCAN_POSE_DEG = [-19.4, 10.7, 4.6, 63.0, 7.1, 1.4, 56.6]`
 - Step 1 像素点：
@@ -18,7 +62,7 @@
 - Step 3：`grasp-z-mm 330`，`lift-z-mm 400`
 - Step 4：`place-z-mm 295`，`z-safe-mm 400`
 
-## 3. 为什么整条流程仍然慢
+## 5. 为什么整条流程仍然慢
 
 ### 3.1 Step 1 采集本身就偏慢
 
@@ -50,12 +94,12 @@
 - 当前 `step1` 仍依赖人工确认 `pixel-coords`。
 - 这本身就会让流程受人机交互速度影响，不可能做到快速闭环。
 
-## 4. 这轮现场结论
+## 6. 这轮现场结论
 
 - 当前系统不是"不能做"，而是"能做但调参成本高、节拍慢"。
 - 现在最优先的问题已经不是手眼/TCP 本身，而是流程编排和执行判定。
 
-## 5. 下一步最值得做的优化
+## 7. 下一步最值得做的优化
 
 - 做一个真正的单进程 `pick_place_session.py`，把 `scan / move_above / grasp / place` 放进一个常驻会话里，彻底消除跨步骤重复建连。
 - 放宽 `step2` 的完成判定，避免"几乎到位却报失败"。

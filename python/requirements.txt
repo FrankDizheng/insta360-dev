@@ -1,9 +1,9 @@
-# Insta360 X5 开发依赖
+# Insta360 X5 development dependencies
 
-# HTTP 请求（OSC API）
+# HTTP requests (OSC API)
 requests>=2.31.0
 
-# 图像处理
+# Image processing
 opencv-python>=4.8.0
 Pillow>=10.0.0
 numpy>=1.24.0
@@ -11,8 +11,8 @@ numpy>=1.24.0
 # NERO arm simulation / visualization (nero/visualize.py)
 matplotlib>=3.7.0
 
-# 视频处理
-# ffmpeg-python>=0.2.0  # 可选，需要系统安装 ffmpeg
+# Video processing
+# ffmpeg-python>=0.2.0  # Optional; requires system ffmpeg
 
-# 工具
+# Utilities
 python-dotenv>=1.0.0
