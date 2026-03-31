@@ -7,18 +7,21 @@ in one resident process — eliminating repeated reconnect overhead.
 
 Raspberry Pi role: hardware I/O hub (CAN / camera / SDK).
 All coordinate math runs here but is lightweight (NumPy only).
-Heavy inference (VLM) must NOT run on Pi; invoke from a laptop
-over the network before calling this script.
+VLM inference runs on the laptop/server via a vLLM endpoint —
+NOT on the Pi.
 
 Typical usage:
     python3 pick_place_session.py \\
         --handeye  /home/pi/calibration/results/session1/handeye_result.json \\
         --tcp      /home/pi/calibration/results/session1/gripper_tcp_left_front_tip_samples_004_006.json \\
         --scan-pose "-19.4,10.7,4.6,63.0,7.1,1.4,56.6" \\
-        --output-dir /home/pi/session
+        --output-dir /home/pi/session \\
+        --vlm-endpoint http://192.168.x.x:8000/v1 \\
+        --vlm-model Qwen/Qwen2.5-VL-7B-Instruct
 """
 
 import argparse
+import base64
 import json
 import math
 import sys
@@ -349,6 +352,83 @@ def phase_home(robot, speed_pct: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# VLM object detection (runs on laptop/server via vLLM, NOT on Pi)
+# ---------------------------------------------------------------------------
+
+_VLM_PROMPT = """\
+This image is from a robot arm camera looking down at a workspace.
+Identify the pixel coordinates (u=column, v=row) of each object listed.
+
+Objects to find: {object_list}
+
+Rules:
+- Return ONLY a JSON object, no explanation, no markdown fences.
+- Each key is the object name, each value is [u, v] integers.
+- Use the CENTER pixel of the object.
+- If an object is not visible, omit its key.
+
+Example output: {{"bottle": [320, 240], "blue_board": [580, 310]}}
+"""
+
+
+def vlm_detect_objects(
+    color_bgr: np.ndarray,
+    object_names: list[str],
+    endpoint: str,
+    model: str,
+    timeout_s: float = 20.0,
+) -> dict[str, tuple[int, int]]:
+    """Send image to vLLM endpoint; returns {name: (u, v)} for detected objects.
+
+    Uses the OpenAI-compatible vision API exposed by vLLM.
+    Runs on laptop/server — this call is a network request from the Pi.
+    """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise RuntimeError(
+            "openai package not installed. Run: pip install openai"
+        )
+
+    _, buf = cv2.imencode(".jpg", color_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
+    data_url = f"data:image/jpeg;base64,{b64}"
+
+    prompt = _VLM_PROMPT.format(object_list=", ".join(f'"{n}"' for n in object_names))
+
+    client = OpenAI(base_url=endpoint, api_key="none", timeout=timeout_s)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+        max_tokens=256,
+        temperature=0.0,
+    )
+
+    raw_text = response.choices[0].message.content.strip()
+    print(f"{_TAG} VLM raw response: {raw_text}")
+
+    # Strip markdown fences if model ignored instructions
+    if raw_text.startswith("```"):
+        raw_text = "\n".join(
+            line for line in raw_text.splitlines()
+            if not line.startswith("```")
+        ).strip()
+
+    parsed = json.loads(raw_text)
+    result: dict[str, tuple[int, int]] = {}
+    for name, coords in parsed.items():
+        if isinstance(coords, (list, tuple)) and len(coords) == 2:
+            result[name] = (int(coords[0]), int(coords[1]))
+    return result
+
+
+# ---------------------------------------------------------------------------
 # REPL
 # ---------------------------------------------------------------------------
 
@@ -357,17 +437,18 @@ def print_help() -> None:
 [session] Commands:
   scan                   Move to scan pose and capture RGBD image
   capture                Capture RGBD without moving (arm already at scan pose)
-  pixels name:u:v,...    Locate objects from last scan (reuse frame, instant)
+  detect [obj1 obj2...]  Scan + auto-detect objects via VLM (no manual pixels needed)
+                           Default objects: bottle blue_board
+  pixels name:u:v,...    Locate objects from last scan using manual pixel coords
   rescan name:u:v,...    Re-capture and locate in one step
   load [path]            Load objects.json directly — skip scan entirely
-                           (use when objects haven't moved since last run)
   objects                Show currently loaded object positions
-  pick  <object>         Move above → grasp → lift  (<object> key in objects)
+  pick  <object>         Move above → grasp → lift
   place <destination>    Transit → lower → release → lift away
   home                   Return to all-zero joint configuration
   status                 Show current flange pose and arm_status
   help                   Show this help
-  quit                   Exit session (arm stays in current position)
+  quit                   Exit session
 """)
 
 
@@ -421,6 +502,11 @@ def main() -> None:
                         help="Robot speed percent (1-100)")
     parser.add_argument("--flush-frames", type=int, default=2,
                         help="Extra RGBD frames to discard before each capture")
+    parser.add_argument("--vlm-endpoint", default=None,
+                        help="vLLM OpenAI-compatible endpoint URL, e.g. http://192.168.1.10:8000/v1 "
+                             "(runs on laptop/server, NOT on Pi)")
+    parser.add_argument("--vlm-model", default="Qwen/Qwen2.5-VL-7B-Instruct",
+                        help="Model name as registered in the vLLM server")
     args = parser.parse_args()
 
     scan_pose_deg = _parse_scan_pose(args.scan_pose)
@@ -501,6 +587,46 @@ def main() -> None:
                     phase_move_to_scan_pose(robot, scan_pose_deg, args.speed)
                     last_scan = phase_scan(robot, handeye, camera, out_dir, args.flush_frames)
                     objects = phase_locate(last_scan, pixel_raw, out_dir)
+
+                # ---- detect (scan + VLM auto-locate) ---------------------
+                elif raw.startswith("detect"):
+                    if not args.vlm_endpoint:
+                        print(f"{_TAG} VLM not configured. Start session with --vlm-endpoint.")
+                        continue
+                    parts = raw.split()
+                    # 'detect' → default names; 'detect bottle cup' → those names
+                    detect_names = parts[1:] if len(parts) > 1 else ["bottle", "blue_board"]
+
+                    phase_move_to_scan_pose(robot, scan_pose_deg, args.speed)
+                    last_scan = phase_scan(robot, handeye, camera, out_dir, args.flush_frames)
+
+                    print(f"{_TAG} Sending image to VLM ({args.vlm_model}) for detection ...")
+                    detected = vlm_detect_objects(
+                        last_scan["color_bgr"],
+                        detect_names,
+                        endpoint=args.vlm_endpoint,
+                        model=args.vlm_model,
+                    )
+                    if not detected:
+                        print(f"{_TAG} VLM returned no objects. Try 'pixels' manually.")
+                        continue
+
+                    # Annotate image with detected pixels and save
+                    annotated = last_scan["color_bgr"].copy()
+                    pixel_raw_parts = []
+                    for name, (u, v) in detected.items():
+                        cv2.circle(annotated, (u, v), 8, (0, 255, 0), 2)
+                        cv2.putText(annotated, name, (u + 10, v - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                        pixel_raw_parts.append(f"{name}:{u}:{v}")
+                        print(f"{_TAG}   VLM detected '{name}' at pixel ({u}, {v})")
+                    detect_path = out_dir / "scan_detected.jpg"
+                    cv2.imwrite(str(detect_path), annotated)
+                    print(f"{_TAG} Annotated image saved: {detect_path}")
+
+                    pixel_raw = ",".join(pixel_raw_parts)
+                    objects = phase_locate(last_scan, pixel_raw, out_dir)
+                    print(f"{_TAG} Auto-detection complete. {len(objects)} object(s) located.")
 
                 # ---- load objects.json directly --------------------------
                 elif raw.startswith("load"):
