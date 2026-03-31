@@ -356,8 +356,12 @@ def print_help() -> None:
     print("""
 [session] Commands:
   scan                   Move to scan pose and capture RGBD image
-  pixels name:u:v,...    Locate objects from last scan (reuse frame)
+  capture                Capture RGBD without moving (arm already at scan pose)
+  pixels name:u:v,...    Locate objects from last scan (reuse frame, instant)
   rescan name:u:v,...    Re-capture and locate in one step
+  load [path]            Load objects.json directly — skip scan entirely
+                           (use when objects haven't moved since last run)
+  objects                Show currently loaded object positions
   pick  <object>         Move above → grasp → lift  (<object> key in objects)
   place <destination>    Transit → lower → release → lift away
   home                   Return to all-zero joint configuration
@@ -477,10 +481,16 @@ def main() -> None:
                     print(f"{_TAG} Inspect {last_scan['color_path']} then run:\n"
                           f"  pixels bottle:U:V,blue_board:U2:V2")
 
+                # ---- capture (no robot movement) -------------------------
+                elif raw == "capture":
+                    last_scan = phase_scan(robot, handeye, camera, out_dir, args.flush_frames)
+                    print(f"{_TAG} Captured (arm not moved). Inspect {last_scan['color_path']} then run:\n"
+                          f"  pixels bottle:U:V,blue_board:U2:V2")
+
                 # ---- pixels (reuse last frame) ----------------------------
                 elif raw.startswith("pixels "):
                     if last_scan is None:
-                        print(f"{_TAG} No scan yet. Run 'scan' first.")
+                        print(f"{_TAG} No scan yet. Run 'scan' or 'capture' first.")
                         continue
                     pixel_raw = raw[len("pixels "):].strip()
                     objects = phase_locate(last_scan, pixel_raw, out_dir)
@@ -491,6 +501,30 @@ def main() -> None:
                     phase_move_to_scan_pose(robot, scan_pose_deg, args.speed)
                     last_scan = phase_scan(robot, handeye, camera, out_dir, args.flush_frames)
                     objects = phase_locate(last_scan, pixel_raw, out_dir)
+
+                # ---- load objects.json directly --------------------------
+                elif raw.startswith("load"):
+                    parts = raw.split(maxsplit=1)
+                    obj_path = Path(parts[1].strip()) if len(parts) > 1 else out_dir / "objects.json"
+                    if not obj_path.exists():
+                        print(f"{_TAG} File not found: {obj_path}")
+                        continue
+                    data = json.loads(obj_path.read_text(encoding="utf-8"))
+                    objects = data.get("objects", {})
+                    ts = data.get("timestamp", "unknown")
+                    print(f"{_TAG} Loaded {len(objects)} object(s) from {obj_path} (timestamp: {ts})")
+                    for name, obj in objects.items():
+                        xyz = obj["base_xyz_m"]
+                        print(f"  {name}: [{xyz[0]*1000:.1f}, {xyz[1]*1000:.1f}, {xyz[2]*1000:.1f}] mm")
+
+                # ---- objects (show current) ------------------------------
+                elif raw == "objects":
+                    if not objects:
+                        print(f"{_TAG} No objects loaded. Run 'scan'+'pixels' or 'load'.")
+                    else:
+                        for name, obj in objects.items():
+                            xyz = obj["base_xyz_m"]
+                            print(f"  {name}: [{xyz[0]*1000:.1f}, {xyz[1]*1000:.1f}, {xyz[2]*1000:.1f}] mm")
 
                 # ---- pick -------------------------------------------------
                 elif raw.startswith("pick"):
