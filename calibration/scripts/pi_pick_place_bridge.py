@@ -168,11 +168,7 @@ def safe_lift(robot, height_m: float = 0.30) -> np.ndarray:
 
     robot.set_speed_percent(10)
     time.sleep(0.05)
-
-    if delta_mm < 50.0:
-        robot.move_l(lift_pose.tolist())
-    else:
-        robot.move_p(lift_pose.tolist())
+    robot.move_l(lift_pose.tolist())
 
     wait_move_done(robot, lift_pose[:3])
     return get_current_pose(robot)
@@ -212,7 +208,9 @@ def _safe_move_to(robot, target_pose, z_safe_m: float = 0.30,
         if delta_mm < 50.0:
             robot.move_l(lift_pose.tolist())
         else:
-            robot.move_p(lift_pose.tolist())
+            # Keep the pre-transit lift strictly vertical to avoid dipping into
+            # nearby objects during a joint-space arc.
+            robot.move_l(lift_pose.tolist())
         wait_move_done(robot, lift_pose[:3])
     else:
         print(f"{_TAG} Phase 1: already at Z={current[2]:.4f} m >= {z_safe_m:.4f} m")
@@ -227,7 +225,9 @@ def _safe_move_to(robot, target_pose, z_safe_m: float = 0.30,
     )
     robot.set_speed_percent(speed_pct)
     time.sleep(0.05)
-    robot.move_p(transit_pose.tolist())
+    # Keep the hover transit on a Cartesian line at the safe height instead of
+    # a joint-space interpolation, which can dip toward the object mid-path.
+    robot.move_l(transit_pose.tolist())
     wait_move_done(robot, transit_pose[:3], tol_mm=tol_mm)
 
     if abs(transit_pose[2] - target[2]) > 0.001:
@@ -330,9 +330,14 @@ def phase_capture_scan(robot, camera: PersistentAlignedRGBDCapture, flush_frames
 
 def phase_move_above(robot, tcp_offset, obj_xyz: list[float],
                      standoff_mm: float, z_safe_m: float,
-                     speed_pct: int, tol_mm: float) -> dict:
+                     speed_pct: int, tol_mm: float,
+                     min_hover_z_m: float | None = None) -> dict:
     current_rpy = _read_current_rpy(robot, tcp_offset)
     standoff_z = obj_xyz[2] + standoff_mm / 1000.0
+    if min_hover_z_m is not None and standoff_z < min_hover_z_m:
+        print(f"{_TAG} Raising hover Z from {standoff_z*1000:.0f} mm to "
+              f"{min_hover_z_m*1000:.0f} mm to avoid low transparent-depth hover")
+        standoff_z = min_hover_z_m
     target_pose = [obj_xyz[0], obj_xyz[1], standoff_z, *current_rpy]
     flange_target = robot.get_tcp2flange_pose(target_pose) if tcp_offset else target_pose
 
@@ -344,11 +349,59 @@ def phase_move_above(robot, tcp_offset, obj_xyz: list[float],
     return _status_payload(robot)
 
 
+def _move_to_grasp_target(robot, tcp_offset,
+                          target_xyz: list[float],
+                          standoff_mm: float | None,
+                          z_safe_m: float,
+                          speed_pct: int,
+                          tol_mm: float) -> None:
+    current_rpy = _read_current_rpy(robot, tcp_offset)
+    if tcp_offset:
+        tcp = robot.get_tcp_pose()
+        if tcp is None or tcp.msg is None:
+            raise RuntimeError(f"{_TAG} TCP pose unavailable")
+        current_pose = np.array(tcp.msg[:6], dtype=np.float64)
+    else:
+        current_pose = get_current_pose(robot)
+
+    delta_xy_mm = float(np.linalg.norm(current_pose[:2] - np.array(target_xyz[:2], dtype=np.float64)) * 1000.0)
+    if delta_xy_mm < 0.5:
+        return
+
+    align_z = max(float(current_pose[2]), z_safe_m)
+    if standoff_mm is not None:
+        align_z = max(align_z, float(target_xyz[2]) + standoff_mm / 1000.0)
+
+    target_pose = [float(target_xyz[0]), float(target_xyz[1]), align_z, *current_rpy]
+    flange_target = robot.get_tcp2flange_pose(target_pose) if tcp_offset else target_pose
+    check_target_safe(flange_target)
+
+    print(f"{_TAG} Repositioning to final grasp XY at Z={align_z*1000:.0f} mm "
+          f"(delta XY={delta_xy_mm:.1f} mm, tol={tol_mm:.0f} mm) ...")
+    robot.set_speed_percent(speed_pct)
+    _safe_move_to(robot, flange_target, z_safe_m=align_z, speed_pct=speed_pct, tol_mm=tol_mm)
+
+
 def phase_grasp(robot, effector, tcp_offset,
                 grasp_z_mm: float, lift_z_mm: float,
                 gripper_width: float, gripper_force: float,
                 speed_pct: int,
-                retry_step_mm: float = 15.0, retry_count: int = 2) -> dict:
+                retry_step_mm: float = 15.0, retry_count: int = 2,
+                target_xyz: list[float] | None = None,
+                standoff_mm: float | None = None,
+                z_safe_m: float = 0.40,
+                xy_tol_mm: float = 15.0) -> dict:
+    if target_xyz is not None:
+        _move_to_grasp_target(
+            robot,
+            tcp_offset,
+            target_xyz,
+            standoff_mm=standoff_mm,
+            z_safe_m=z_safe_m,
+            speed_pct=speed_pct,
+            tol_mm=xy_tol_mm,
+        )
+
     print(f"{_TAG} Opening gripper (width={gripper_width} m) ...")
     effector.move_gripper(width=gripper_width, force=1.0)
     time.sleep(1.5)
@@ -402,6 +455,8 @@ def phase_grasp(robot, effector, tcp_offset,
         safe_lift(robot, height_m=lift_z_mm / 1000.0)
         payload = _status_payload(robot, effector)
         payload["actual_grasp_z_mm"] = float(z_try)
+        if target_xyz is not None:
+            payload["grasp_target_xyz"] = [float(v) for v in target_xyz]
         return payload
 
     raise RuntimeError(f"{_TAG} Grasp failed after {retry_count + 1} attempts")
@@ -729,6 +784,7 @@ class Handler(BaseHTTPRequestHandler):
                 float(req.get("z_safe_mm", 400)) / 1000.0,
                 int(req.get("speed_pct", 10)),
                 float(req.get("tol_mm", 15.0)),
+                min_hover_z_m=(float(req["min_hover_z_mm"]) / 1000.0) if "min_hover_z_mm" in req else None,
             )
             payload["session_open"] = STATE.client_session_open
             payload["hardware_ready"] = STATE.hardware_ready
@@ -749,6 +805,10 @@ class Handler(BaseHTTPRequestHandler):
                 int(req.get("speed_pct", 10)),
                 retry_step_mm=float(req.get("retry_step_mm", 15.0)),
                 retry_count=int(req.get("retry_count", 2)),
+                target_xyz=[float(v) for v in req["target_xyz"]] if "target_xyz" in req else None,
+                standoff_mm=float(req["standoff_mm"]) if "standoff_mm" in req else None,
+                z_safe_m=float(req.get("z_safe_mm", 400)) / 1000.0,
+                xy_tol_mm=float(req.get("xy_tol_mm", 15.0)),
             )
             payload["session_open"] = STATE.client_session_open
             payload["hardware_ready"] = STATE.hardware_ready
