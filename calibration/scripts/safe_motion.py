@@ -58,7 +58,7 @@ def wait_move_done(
     Fails fast on fatal arm_status (no IK solution, collision, over-limit, etc.)
     instead of waiting for a full position timeout.
     """
-    time.sleep(0.3)
+    time.sleep(0.1)
     target = np.array(target_flange_xyz[:3], dtype=np.float64)
     deadline = time.monotonic() + timeout_s
     err_mm = float("inf")
@@ -101,7 +101,7 @@ def safe_lift(robot, height_m: float = 0.30) -> np.ndarray:
     delta_mm = (height_m - current_z) * 1000.0
     print(f"{_TAG} Lifting Z: {current_z:.4f} -> {height_m:.4f} m (delta={delta_mm:.1f} mm)")
 
-    robot.set_speed_percent(10)
+    robot.set_speed_percent(30)
     time.sleep(0.05)
 
     if delta_mm < 50.0:
