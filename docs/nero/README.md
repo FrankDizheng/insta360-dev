@@ -34,6 +34,8 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [08_白瓶抓放现状](./08_PICK_PLACE_STATUS.md)
 - [09_Pi 常驻 robot_server](./09_ROBOT_SERVER_SERVICE.md)
 - [09_压入式装盒里程碑](./09_FORCE_GUIDED_BOX_PLACEMENT_MILESTONE.md)
+- [10_压入式装盒甲方简版](./10_CLIENT_BOX_PLACEMENT_BRIEF.md)
+- [11_压入式装盒商务说明](./11_CLIENT_BOX_PLACEMENT_BUSINESS_BRIEF.md)
 - [pyAgxArm NERO SDK API（本仓库副本）](./NERO_SDK_API.md)
 
 ## 关键边界
@@ -61,3 +63,4 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - 先把平台接口、控制抽象、视觉抽象、VLM 服务协议写好
 - 先用 mock 控制器和本机相机 / 测试图像把主流程跑通
 - 等后续拿到官方代码或硬件到位，再把 NERO 真机控制实现接进来
+
