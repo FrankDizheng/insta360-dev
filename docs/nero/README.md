@@ -33,6 +33,7 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [07_树莓派接入信息](./07_RASPBERRY_PI_ACCESS.md)
 - [08_白瓶抓放现状](./08_PICK_PLACE_STATUS.md)
 - [09_Pi 常驻 robot_server](./09_ROBOT_SERVER_SERVICE.md)
+- [09_压入式装盒里程碑](./09_FORCE_GUIDED_BOX_PLACEMENT_MILESTONE.md)
 - [pyAgxArm NERO SDK API（本仓库副本）](./NERO_SDK_API.md)
 
 ## 关键边界
