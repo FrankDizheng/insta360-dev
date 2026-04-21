@@ -179,6 +179,7 @@ app = FastAPI(title="NERO Robot Server (Pi I/O)", lifespan=lifespan)
 
 class MoveAboveRequest(BaseModel):
     xyz_m: list[float]          # [x, y, z] in base frame — computed on Mac
+    rpy_rad: list[float] | None = None
     standoff_mm: float = 80.0
     z_safe_mm: float = 400.0
 
@@ -285,12 +286,21 @@ def post_move_above(req: MoveAboveRequest):
     """Move gripper to standoff above a 3D point computed on Mac."""
     if len(req.xyz_m) != 3:
         raise HTTPException(400, "xyz_m must have 3 values")
+    if req.rpy_rad is not None and len(req.rpy_rad) != 3:
+        raise HTTPException(400, "rpy_rad must have 3 values when provided")
     try:
         z_safe_m = req.z_safe_mm / 1000.0
-        current_rpy = (list(HW.robot.get_tcp_pose().msg[3:6])
-                       if HW.tcp_offset else get_current_pose(HW.robot)[3:6].tolist())
+        target_rpy = (
+            req.rpy_rad
+            if req.rpy_rad is not None
+            else (
+                list(HW.robot.get_tcp_pose().msg[3:6])
+                if HW.tcp_offset
+                else get_current_pose(HW.robot)[3:6].tolist()
+            )
+        )
         standoff_z = req.xyz_m[2] + req.standoff_mm / 1000.0
-        target = [req.xyz_m[0], req.xyz_m[1], standoff_z, *current_rpy]
+        target = [req.xyz_m[0], req.xyz_m[1], standoff_z, *target_rpy]
         flange_t = HW.robot.get_tcp2flange_pose(target) if HW.tcp_offset else target
         check_target_safe(flange_t)
         HW.robot.set_speed_percent(HW.speed_pct)
