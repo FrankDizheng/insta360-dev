@@ -164,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--task", default="",
                        help="Task description for the current run")
     parser.add_argument("--robot-mode", default="mock",
-                       help="Robot controller mode: mock or nero")
+                       help="Robot controller mode: mock, sim-nero, or nero")
     parser.add_argument("--image-dir", default="",
                        help="Replay images from a directory instead of a live camera")
     parser.add_argument("--no-cache", action="store_true",

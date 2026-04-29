@@ -2,10 +2,22 @@ from .controllers import (
     BaseRobotController,
     MockRobotController,
     NeroRobotController,
+    SimNeroController,
     assert_arm_status_ok,
     dispatch_action,
     get_robot_controller,
     read_arm_status_code,
+)
+from .geometry import OFFICIAL_NERO_GEOMETRY, NeroGeometryEnvelope
+from .planning import (
+    PlannerResult,
+    ReachSample,
+    WorkspaceSamplerConfig,
+    plan_joint_motion,
+    planner_result_to_dict,
+    sample_reachable_target,
+    sample_workspace_target,
+    solve_ik_position,
 )
 from .perception import (
     CameraInterface,
@@ -24,7 +36,7 @@ from .types import (
     clamp_joints,
     clamp_joints_rad,
 )
-from .kinematics import flange_position, forward_kinematics
+from .kinematics import flange_position, forward_kinematics, tcp_position
 
 __all__ = [
     "ActionDecision",
@@ -37,8 +49,14 @@ __all__ = [
     "MockCamera",
     "MockRobotController",
     "NeroRobotController",
+    "NeroGeometryEnvelope",
     "OrbbecCamera",
+    "OFFICIAL_NERO_GEOMETRY",
+    "PlannerResult",
     "Position3D",
+    "ReachSample",
+    "SimNeroController",
+    "WorkspaceSamplerConfig",
     "arm_status_label",
     "assert_arm_status_ok",
     "clamp_joints",
@@ -48,5 +66,11 @@ __all__ = [
     "forward_kinematics",
     "get_camera",
     "get_robot_controller",
+    "plan_joint_motion",
+    "planner_result_to_dict",
     "read_arm_status_code",
+    "sample_reachable_target",
+    "sample_workspace_target",
+    "solve_ik_position",
+    "tcp_position",
 ]
