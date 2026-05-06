@@ -19,7 +19,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.nero_sim.reach_policy import ReachPolicyMLP, ReachTrajectoryDataset  # noqa: E402
+from experiments.nero_sim.reach_policy import (  # noqa: E402
+    FEATURE_MODE_LEGACY,
+    FEATURE_MODE_SEGMENT,
+    FEATURE_MODE_FULL,
+    ReachPolicyMLP,
+    ReachTrajectoryDataset,
+    feature_mode_to_input_dim,
+)
 
 
 def set_seed(seed: int) -> None:
@@ -28,18 +35,30 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
-def evaluate(model: nn.Module, loader: DataLoader, device: torch.device) -> float:
+def _weighted_smooth_l1(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    sample_weight: torch.Tensor,
+) -> torch.Tensor:
+    per_dim = torch.nn.functional.smooth_l1_loss(pred, target, reduction="none")
+    per_sample = per_dim.mean(dim=1)
+    weighted = per_sample * sample_weight
+    return weighted.sum() / torch.clamp(sample_weight.sum(), min=1.0)
+
+
+def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, point_b_weight: float) -> float:
     model.eval()
     total_loss = 0.0
     total_count = 0
-    criterion = nn.SmoothL1Loss(reduction="sum")
     with torch.no_grad():
         for batch in loader:
             x = batch["input"].to(device)
             y = batch["action"].to(device)
+            segment_id = batch["segment_id"].to(device)
+            sample_weight = torch.where(segment_id > 0.5, torch.full_like(segment_id, point_b_weight), torch.ones_like(segment_id))
             pred = model(x)
-            loss = criterion(pred, y)
-            total_loss += float(loss.item())
+            loss = _weighted_smooth_l1(pred, y, sample_weight)
+            total_loss += float(loss.item()) * int(x.shape[0])
             total_count += int(x.shape[0])
     return total_loss / max(total_count, 1)
 
@@ -68,12 +87,18 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument("--val-split", type=float, default=0.1)
+    parser.add_argument("--point-b-weight", type=float, default=2.0)
+    parser.add_argument(
+        "--feature-mode",
+        choices=[FEATURE_MODE_LEGACY, FEATURE_MODE_SEGMENT, FEATURE_MODE_FULL],
+        default=FEATURE_MODE_LEGACY,
+    )
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
 
     set_seed(args.seed)
     dataset_paths = [args.dataset] + list(args.extra_dataset)
-    dataset = ReachTrajectoryDataset(dataset_paths)
+    dataset = ReachTrajectoryDataset(dataset_paths, feature_mode=args.feature_mode)
     val_size = max(1, int(math.ceil(len(dataset) * args.val_split)))
     train_size = max(1, len(dataset) - val_size)
     if train_size + val_size > len(dataset):
@@ -88,9 +113,8 @@ def main() -> None:
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ReachPolicyMLP(hidden_dim=args.hidden_dim).to(device)
+    model = ReachPolicyMLP(hidden_dim=args.hidden_dim, input_dim=feature_mode_to_input_dim(args.feature_mode)).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    criterion = nn.SmoothL1Loss()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -106,16 +130,22 @@ def main() -> None:
         for batch in train_loader:
             x = batch["input"].to(device)
             y = batch["action"].to(device)
+            segment_id = batch["segment_id"].to(device)
+            sample_weight = torch.where(
+                segment_id > 0.5,
+                torch.full_like(segment_id, args.point_b_weight),
+                torch.ones_like(segment_id),
+            )
             optimizer.zero_grad(set_to_none=True)
             pred = model(x)
-            loss = criterion(pred, y)
+            loss = _weighted_smooth_l1(pred, y, sample_weight)
             loss.backward()
             optimizer.step()
             running_loss += float(loss.item()) * int(x.shape[0])
             sample_count += int(x.shape[0])
 
         train_loss = running_loss / max(sample_count, 1)
-        val_loss = evaluate(model, val_loader, device)
+        val_loss = evaluate(model, val_loader, device, args.point_b_weight)
         history.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
         print(f"epoch={epoch:03d} train_loss={train_loss:.6f} val_loss={val_loss:.6f}")
 
@@ -125,6 +155,8 @@ def main() -> None:
                 {
                     "model_state_dict": model.state_dict(),
                     "hidden_dim": args.hidden_dim,
+                    "input_dim": model.input_dim,
+                    "feature_mode": args.feature_mode,
                     "dataset": str(args.dataset),
                     "best_val_loss": best_val,
                 },
@@ -137,8 +169,10 @@ def main() -> None:
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "hidden_dim": args.hidden_dim,
+        "feature_mode": args.feature_mode,
         "lr": args.lr,
         "weight_decay": args.weight_decay,
+        "point_b_weight": args.point_b_weight,
         "seed": args.seed,
         "device": str(device),
         "train_samples": train_size,

@@ -15,7 +15,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.nero_sim.reach_policy import ReachPolicyMLP, build_policy_input  # noqa: E402
+from experiments.nero_sim.reach_policy import (  # noqa: E402
+    LEGACY_INPUT_DIM,
+    ReachPolicyMLP,
+    build_policy_input,
+    feature_mode_to_input_dim,
+)
 from nero import clamp_joints_rad, tcp_position  # noqa: E402
 from nero.types import HOME_ANGLES_DEG  # noqa: E402
 from nero.planning import deg_to_rad, rad_to_deg  # noqa: E402
@@ -31,7 +36,15 @@ def load_episode(dataset_path: str | Path, episode_idx: int) -> dict:
 
 def load_policy(checkpoint_path: str | Path, device: torch.device) -> ReachPolicyMLP:
     payload = torch.load(checkpoint_path, map_location=device)
-    model = ReachPolicyMLP(hidden_dim=int(payload["hidden_dim"])).to(device)
+    state_dict = payload["model_state_dict"]
+    first_weight = state_dict["net.0.weight"]
+    hidden_dim = int(payload.get("hidden_dim", first_weight.shape[0]))
+    feature_mode = payload.get("feature_mode")
+    if feature_mode is not None:
+        input_dim = int(payload.get("input_dim", feature_mode_to_input_dim(str(feature_mode))))
+    else:
+        input_dim = int(payload.get("input_dim", first_weight.shape[1] if hasattr(first_weight, "shape") else LEGACY_INPUT_DIM))
+    model = ReachPolicyMLP(hidden_dim=hidden_dim, input_dim=input_dim).to(device)
     model.load_state_dict(payload["model_state_dict"])
     model.eval()
     return model
@@ -42,6 +55,7 @@ def rollout_to_target(
     start_q_rad: list[float],
     target_xyz: list[float],
     *,
+    segment: str = "point_a",
     device: torch.device,
     max_steps: int = 80,
     success_tol_m: float = 0.01,
@@ -50,7 +64,11 @@ def rollout_to_target(
     q_history = [list(q)]
     tcp_history = [tcp_position(q).tolist()]
     for step in range(max_steps):
-        x = torch.tensor(build_policy_input(q, list(target_xyz)), dtype=torch.float32, device=device).unsqueeze(0)
+        x = torch.tensor(
+            build_policy_input(q, list(target_xyz), segment=segment, input_dim=model.input_dim),
+            dtype=torch.float32,
+            device=device,
+        ).unsqueeze(0)
         with torch.no_grad():
             delta = model(x)[0].cpu().numpy().tolist()
         q = clamp_joints_rad([a + da for a, da in zip(q, delta, strict=True)])
@@ -109,6 +127,7 @@ def main() -> None:
         model,
         q_home,
         point_a_xyz,
+        segment="point_a",
         device=device,
         max_steps=args.max_steps,
         success_tol_m=success_tol_m,
@@ -119,6 +138,7 @@ def main() -> None:
         model,
         start_b,
         point_b_xyz,
+        segment="point_b",
         device=device,
         max_steps=args.max_steps,
         success_tol_m=success_tol_m,

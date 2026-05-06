@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+import time
 
 import torch
 
@@ -17,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 from experiments.nero_sim.eval_reach_policy import load_episode, load_policy  # noqa: E402
 from experiments.nero_sim.reach_policy import build_policy_input  # noqa: E402
 from nero import clamp_joints_rad, tcp_position  # noqa: E402
-from nero.planning import deg_to_rad, plan_joint_motion  # noqa: E402
+from nero.planning import MotionPlanConfig, deg_to_rad, plan_tcp_motion  # noqa: E402
 from nero.types import HOME_ANGLES_DEG  # noqa: E402
 
 
@@ -35,11 +36,12 @@ def rollout_with_corrections(
     q = list(start_q_rad)
     corrections: list[dict[str, object]] = []
     final_summary: dict[str, object] = {}
+    planner_cfg = MotionPlanConfig(tolerance_m=min(success_tol_m, 0.01))
 
     for step_idx in range(max_steps):
         current_tcp = tcp_position(q).tolist()
         error_m = float(torch.tensor(target_xyz).sub(torch.tensor(current_tcp)).norm().item())
-        expert_plan = plan_joint_motion(target_xyz, q, tolerance_m=min(success_tol_m, 0.01))
+        expert_plan = plan_tcp_motion(target_xyz, q, config=planner_cfg)
         if len(expert_plan.path_rad) >= 2:
             expert_next_q = list(expert_plan.path_rad[1])
         else:
@@ -66,7 +68,11 @@ def rollout_with_corrections(
             final_summary = {"success": True, "steps": step_idx, "final_error_m": error_m}
             break
 
-        x = torch.tensor(build_policy_input(q, list(target_xyz)), dtype=torch.float32, device=device).unsqueeze(0)
+        x = torch.tensor(
+            build_policy_input(q, list(target_xyz), segment=segment, input_dim=model.input_dim),
+            dtype=torch.float32,
+            device=device,
+        ).unsqueeze(0)
         with torch.no_grad():
             delta = model(x)[0].cpu().numpy().tolist()
         q = clamp_joints_rad([a + da for a, da in zip(q, delta, strict=True)])
@@ -102,13 +108,35 @@ def main() -> None:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    started_at = time.perf_counter()
     summary = {
         "episodes": 0,
         "point_a_successes": 0,
         "point_b_successes": 0,
         "correction_records": 0,
     }
+
+    def _print_progress(current_episode: int) -> None:
+        elapsed = max(time.perf_counter() - started_at, 1e-6)
+        avg_per_episode = elapsed / max(current_episode, 1)
+        remaining = max(args.episodes - current_episode, 0)
+        eta = remaining * avg_per_episode
+        bar_width = 24
+        progress = current_episode / max(args.episodes, 1)
+        filled = int(round(progress * bar_width))
+        bar = "#" * filled + "-" * (bar_width - filled)
+        print(
+            f"[{bar}] {current_episode}/{args.episodes} "
+            f"elapsed={elapsed/60.0:.1f}m "
+            f"eta={eta/60.0:.1f}m "
+            f"corr={summary['correction_records']} "
+            f"a_ok={summary['point_a_successes']} "
+            f"b_ok={summary['point_b_successes']}",
+            flush=True,
+        )
+
     with output_path.open("w", encoding="utf-8") as f:
+        print(f"Generating DAgger corrections -> {output_path}", flush=True)
         for episode_idx in range(args.episodes):
             episode = load_episode(args.dataset, episode_idx)
             episode_id = int(episode["episode_id"])
@@ -142,6 +170,8 @@ def main() -> None:
             summary["point_a_successes"] += int(bool(result_a["success"]))
             summary["point_b_successes"] += int(bool(result_b["success"]))
             summary["correction_records"] += len(corr_a) + len(corr_b)
+            f.flush()
+            _print_progress(summary["episodes"])
 
     print(json.dumps(summary, indent=2))
     print(f"saved_dagger_dataset: {output_path}")
