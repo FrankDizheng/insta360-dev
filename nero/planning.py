@@ -40,6 +40,9 @@ class MotionPlanConfig:
     max_ik_iters: int = DEFAULT_MAX_IK_ITERS
     ik_damping: float = 0.03
     max_step_rad: float = DEFAULT_MAX_STEP_RAD
+    seed_limit: int | None = None
+    enable_geometry_cost: bool = True
+    cost_stride: int = 1
     safe_lift_m: float = 0.08
     min_transit_z_m: float = 0.20
     direct_move_threshold_m: float = 0.04
@@ -211,7 +214,47 @@ def stitch_joint_paths(paths_rad: Sequence[Sequence[Sequence[float]]]) -> list[l
     return stitched
 
 
-def joint_path_cost(path_rad: Sequence[Sequence[float]]) -> float:
+def motion_plan_config_for_preset(
+    preset: str,
+    *,
+    tolerance_m: float | None = None,
+) -> MotionPlanConfig:
+    """Return planner settings for common expert/DAgger use cases."""
+    if preset == "full_staged":
+        return MotionPlanConfig(tolerance_m=0.003 if tolerance_m is None else tolerance_m)
+    if preset == "dagger_fast":
+        return MotionPlanConfig(
+            tolerance_m=0.009 if tolerance_m is None else tolerance_m,
+            max_ik_iters=55,
+            ik_damping=0.04,
+            max_step_rad=0.11,
+            seed_limit=3,
+            enable_geometry_cost=False,
+            cost_stride=4,
+            direct_move_threshold_m=0.06,
+            planner_mode="dagger_fast",
+        )
+    if preset == "dagger_local":
+        return MotionPlanConfig(
+            tolerance_m=0.010 if tolerance_m is None else tolerance_m,
+            max_ik_iters=80,
+            ik_damping=0.03,
+            max_step_rad=0.08,
+            seed_limit=1,
+            enable_geometry_cost=True,
+            cost_stride=4,
+            direct_move_threshold_m=0.06,
+            planner_mode="dagger_local",
+        )
+    raise ValueError(f"Unsupported motion planner preset: {preset}")
+
+
+def joint_path_cost(
+    path_rad: Sequence[Sequence[float]],
+    *,
+    enable_geometry_cost: bool = True,
+    cost_stride: int = 1,
+) -> float:
     """Score a path using travel distance + safety penalties."""
     if not path_rad:
         return float("inf")
@@ -219,9 +262,13 @@ def joint_path_cost(path_rad: Sequence[Sequence[float]]) -> float:
     margin_penalty = 0.0
     geometry_penalty = 0.0
     prev = np.asarray(path_rad[0], dtype=np.float64)
-    for waypoint in path_rad:
-        g_penalty, _details = envelope_penalty(waypoint)
-        geometry_penalty += g_penalty
+    if enable_geometry_cost:
+        stride = max(1, int(cost_stride))
+        for waypoint_idx, waypoint in enumerate(path_rad):
+            if waypoint_idx % stride != 0 and waypoint_idx != len(path_rad) - 1:
+                continue
+            g_penalty, _details = envelope_penalty(waypoint)
+            geometry_penalty += g_penalty * stride
     for waypoint in path_rad[1:]:
         q = np.asarray(waypoint, dtype=np.float64)
         total += float(np.linalg.norm(q - prev, ord=1))
@@ -241,6 +288,12 @@ def plan_joint_motion(
     *,
     seed_candidates_rad: Iterable[Sequence[float]] | None = None,
     tolerance_m: float = 0.003,
+    max_ik_iters: int = DEFAULT_MAX_IK_ITERS,
+    ik_damping: float = 0.03,
+    max_step_rad: float = DEFAULT_MAX_STEP_RAD,
+    seed_limit: int | None = None,
+    enable_geometry_cost: bool = True,
+    cost_stride: int = 1,
 ) -> PlannerResult:
     """Plan a direct joint path to reach a Cartesian XYZ goal."""
     target = _target_vec(target_xyz_m)
@@ -261,6 +314,8 @@ def plan_joint_motion(
 
     start = _normalize_joint_vector(start_rad).tolist()
     seeds = list(seed_candidates_rad or default_seed_bank(start))
+    if seed_limit is not None:
+        seeds = seeds[: max(1, int(seed_limit))]
     best_goal = start
     best_err = float("inf")
     best_cost = float("inf")
@@ -270,10 +325,16 @@ def plan_joint_motion(
         candidate_goal, err = solve_ik_position(
             target,
             seed,
+            max_iters=max_ik_iters,
+            damping=ik_damping,
             tolerance_m=tolerance_m,
         )
-        candidate_path = interpolate_joint_path(start, candidate_goal)
-        candidate_cost = joint_path_cost(candidate_path)
+        candidate_path = interpolate_joint_path(start, candidate_goal, max_step_rad=max_step_rad)
+        candidate_cost = joint_path_cost(
+            candidate_path,
+            enable_geometry_cost=enable_geometry_cost,
+            cost_stride=cost_stride,
+        )
         if err < best_err or (math.isclose(err, best_err, abs_tol=1e-6) and candidate_cost < best_cost):
             best_goal = candidate_goal
             best_err = err
@@ -345,6 +406,12 @@ def plan_tcp_motion(
             start,
             seed_candidates_rad=_planner_seed_bank(start, target),
             tolerance_m=cfg.tolerance_m,
+            max_ik_iters=cfg.max_ik_iters,
+            ik_damping=cfg.ik_damping,
+            max_step_rad=cfg.max_step_rad,
+            seed_limit=cfg.seed_limit,
+            enable_geometry_cost=cfg.enable_geometry_cost,
+            cost_stride=cfg.cost_stride,
         )
         direct.planner_mode = "direct_short"
         direct.waypoint_targets_xyz_m = [tuple(float(v) for v in target)]
@@ -375,6 +442,12 @@ def plan_tcp_motion(
             current_q,
             seed_candidates_rad=_planner_seed_bank(current_q, waypoint),
             tolerance_m=cfg.tolerance_m,
+            max_ik_iters=cfg.max_ik_iters,
+            ik_damping=cfg.ik_damping,
+            max_step_rad=cfg.max_step_rad,
+            seed_limit=cfg.seed_limit,
+            enable_geometry_cost=cfg.enable_geometry_cost,
+            cost_stride=cfg.cost_stride,
         )
         stage_reasons.append(result.reason)
         if not result.path_rad:
@@ -398,7 +471,11 @@ def plan_tcp_motion(
         final_cost += float(result.cost)
 
     stitched = stitch_joint_paths(stage_paths)
-    final_cost += joint_path_cost(stitched)
+    final_cost += joint_path_cost(
+        stitched,
+        enable_geometry_cost=cfg.enable_geometry_cost,
+        cost_stride=cfg.cost_stride,
+    )
     return PlannerResult(
         ok=final_err <= cfg.tolerance_m,
         reason="ok" if final_err <= cfg.tolerance_m else "ik_tolerance_not_met",
