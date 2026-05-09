@@ -68,7 +68,7 @@
 
 - `experiments/nero_sim/generate_dagger_corrections.py`
   - DAgger 数据生成入口。
-  - 已加入 `teacher-mode`、`planner-preset`、profile、consistency gate。
+  - 已加入 `teacher-mode`、`planner-preset`、profile、consistency gate、`--workers` episode 级多进程。
 - `nero/planning.py`
   - FK/IK planner、staged planner、planner preset。
   - 当前 teacher 质量和耗时主要受这里影响。
@@ -99,7 +99,8 @@ python experiments/nero_sim/generate_dagger_corrections.py `
   --planner-preset full_staged `
   --min-record-error-mm 8 `
   --keep-every-n-success 4 `
-  --max-teacher-delta-rad 0.08
+  --max-teacher-delta-rad 0.08 `
+  --workers 8
 ```
 
 当前推荐训练命令：
@@ -117,11 +118,23 @@ python experiments/nero_sim/train_reach_policy.py `
   --seed 141
 ```
 
+CUDA PyTorch 检查命令：
+
+```powershell
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.version.cuda); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
+```
+
+Windows + RTX 40 系列当前推荐安装命令：
+
+```powershell
+python -m pip install --force-reinstall "https://mirrors.aliyun.com/pytorch-wheels/cu128/torch-2.11.0%2Bcu128-cp313-cp313-win_amd64.whl"
+```
+
 ## 下一步建议
 
 1. 先不要继续使用 fast/cached teacher 作为正式训练数据来源，除非新增更强的 IK 分支一致性约束。
-2. 优先做 episode-level 多进程并行，把当前约 70 分钟进一步压到 10-20 分钟。
-3. 当前环境 PyTorch 是 CPU 版，RTX 4080S 尚未被训练脚本使用；需要安装 CUDA 版 PyTorch。
+2. 已加入 episode-level 多进程并行；下一步用 `--workers 8` 跑 64 episodes，确认当前机器的最佳 worker 数。
+3. 已确认旧环境 PyTorch 是 CPU 版；安装 CUDA wheel 后，训练脚本会自动使用 `cuda`。
 4. GPU 加速 planner 需要先把 FK/IK 改成 batched tensor 形式，直接把当前 Python 小循环搬到 GPU 不会有效。
 5. 仿真几何仍是近似 envelope，后续需要补齐完整机械臂 3D 包络体。
 

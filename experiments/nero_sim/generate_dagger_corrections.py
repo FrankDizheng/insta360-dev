@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 import json
 import math
@@ -49,6 +50,35 @@ class TeacherProfile:
             "avg_teacher_ms": avg_ms,
             "max_teacher_ms": max_ms,
         }
+
+
+@dataclass(frozen=True)
+class DaggerRunConfig:
+    max_steps: int
+    success_tol_m: float
+    teacher_mode: str
+    planner_preset: str
+    replan_interval: int
+    replan_tcp_threshold_m: float
+    replan_joint_threshold_rad: float
+    min_record_error_m: float
+    keep_every_n_success: int
+    hard_case_full_recheck: bool
+    cached_correction_gain: float
+    max_teacher_delta_rad: float
+    enable_teacher_consistency: bool
+    consistency_correction_gain: float
+    consistency_joint_threshold_rad: float
+    consistency_tcp_threshold_m: float
+    consistency_action_l2_threshold_rad: float
+    consistency_cosine_min: float
+
+
+_WORKER_MODEL = None
+_WORKER_DEVICE: torch.device | None = None
+_WORKER_CONFIG: DaggerRunConfig | None = None
+_WORKER_FAST_PLANNER_CFG: MotionPlanConfig | None = None
+_WORKER_FULL_PLANNER_CFG: MotionPlanConfig | None = None
 
 
 def _dist_xyz(a: list[float], b: list[float]) -> float:
@@ -432,6 +462,158 @@ def rollout_with_corrections(
     return corrections, q, final_summary, profile
 
 
+def _empty_summary() -> dict[str, int]:
+    return {
+        "episodes": 0,
+        "point_a_successes": 0,
+        "point_b_successes": 0,
+        "correction_records": 0,
+        "cached_labels": 0,
+        "fast_replans": 0,
+        "heavy_replans": 0,
+        "consistency_rejects": 0,
+        "skipped_records": 0,
+    }
+
+
+def _update_summary(summary: dict[str, int], episode_result: dict[str, object]) -> None:
+    profile_totals = episode_result["profile_totals"]
+    summary["episodes"] += 1
+    summary["point_a_successes"] += int(bool(episode_result["point_a"]["success"]))
+    summary["point_b_successes"] += int(bool(episode_result["point_b"]["success"]))
+    summary["correction_records"] += len(episode_result["corrections"])
+    for key in ("cached_labels", "fast_replans", "heavy_replans", "consistency_rejects", "skipped_records"):
+        summary[key] += int(profile_totals[key])
+
+
+def _rollout_episode(
+    *,
+    model,
+    device: torch.device,
+    episode: dict,
+    config: DaggerRunConfig,
+    fast_planner_cfg: MotionPlanConfig,
+    full_planner_cfg: MotionPlanConfig,
+) -> dict[str, object]:
+    episode_id = int(episode["episode_id"])
+    q_home = deg_to_rad(HOME_ANGLES_DEG)
+    point_a_xyz = list(episode["point_a"]["xyz_m"])
+    corr_a, q_after_a, result_a, profile_a = rollout_with_corrections(
+        model,
+        start_q_rad=q_home,
+        target_xyz=point_a_xyz,
+        episode_id=episode_id,
+        segment="point_a",
+        device=device,
+        max_steps=config.max_steps,
+        success_tol_m=config.success_tol_m,
+        teacher_mode=config.teacher_mode,
+        fast_planner_cfg=fast_planner_cfg,
+        full_planner_cfg=full_planner_cfg,
+        replan_interval=config.replan_interval,
+        replan_tcp_threshold_m=config.replan_tcp_threshold_m,
+        replan_joint_threshold_rad=config.replan_joint_threshold_rad,
+        min_record_error_m=config.min_record_error_m,
+        keep_every_n_success=config.keep_every_n_success,
+        hard_case_full_recheck=config.hard_case_full_recheck,
+        cached_correction_gain=config.cached_correction_gain,
+        max_teacher_delta_rad=config.max_teacher_delta_rad,
+        enable_teacher_consistency=config.enable_teacher_consistency,
+        consistency_correction_gain=config.consistency_correction_gain,
+        consistency_joint_threshold_rad=config.consistency_joint_threshold_rad,
+        consistency_tcp_threshold_m=config.consistency_tcp_threshold_m,
+        consistency_action_l2_threshold_rad=config.consistency_action_l2_threshold_rad,
+        consistency_cosine_min=config.consistency_cosine_min,
+    )
+    point_b_xyz = list(episode["point_b"]["xyz_m"])
+    corr_b, _q_after_b, result_b, profile_b = rollout_with_corrections(
+        model,
+        start_q_rad=q_after_a,
+        target_xyz=point_b_xyz,
+        episode_id=episode_id,
+        segment="point_b",
+        device=device,
+        max_steps=config.max_steps,
+        success_tol_m=config.success_tol_m,
+        teacher_mode=config.teacher_mode,
+        fast_planner_cfg=fast_planner_cfg,
+        full_planner_cfg=full_planner_cfg,
+        replan_interval=config.replan_interval,
+        replan_tcp_threshold_m=config.replan_tcp_threshold_m,
+        replan_joint_threshold_rad=config.replan_joint_threshold_rad,
+        min_record_error_m=config.min_record_error_m,
+        keep_every_n_success=config.keep_every_n_success,
+        hard_case_full_recheck=config.hard_case_full_recheck,
+        cached_correction_gain=config.cached_correction_gain,
+        max_teacher_delta_rad=config.max_teacher_delta_rad,
+        enable_teacher_consistency=config.enable_teacher_consistency,
+        consistency_correction_gain=config.consistency_correction_gain,
+        consistency_joint_threshold_rad=config.consistency_joint_threshold_rad,
+        consistency_tcp_threshold_m=config.consistency_tcp_threshold_m,
+        consistency_action_l2_threshold_rad=config.consistency_action_l2_threshold_rad,
+        consistency_cosine_min=config.consistency_cosine_min,
+    )
+    profile_a_summary = profile_a.to_summary()
+    profile_b_summary = profile_b.to_summary()
+    profile_totals = {
+        key: int(profile_a_summary[key]) + int(profile_b_summary[key])
+        for key in ("cached_labels", "fast_replans", "heavy_replans", "consistency_rejects", "skipped_records")
+    }
+    return {
+        "episode_id": episode_id,
+        "corrections": corr_a + corr_b,
+        "point_a": result_a,
+        "point_b": result_b,
+        "profile_totals": profile_totals,
+    }
+
+
+def _init_worker(checkpoint: str, config: DaggerRunConfig, device_name: str, torch_threads: int) -> None:
+    global _WORKER_MODEL
+    global _WORKER_DEVICE
+    global _WORKER_CONFIG
+    global _WORKER_FAST_PLANNER_CFG
+    global _WORKER_FULL_PLANNER_CFG
+
+    if torch_threads > 0:
+        torch.set_num_threads(torch_threads)
+    _WORKER_DEVICE = torch.device(device_name)
+    _WORKER_CONFIG = config
+    _WORKER_FAST_PLANNER_CFG = motion_plan_config_for_preset(config.planner_preset, tolerance_m=min(config.success_tol_m, 0.01))
+    _WORKER_FULL_PLANNER_CFG = motion_plan_config_for_preset("full_staged", tolerance_m=min(config.success_tol_m, 0.004))
+    _WORKER_MODEL = load_policy(checkpoint, _WORKER_DEVICE)
+
+
+def _rollout_episode_worker(job: tuple[int, dict]) -> dict[str, object]:
+    if _WORKER_MODEL is None or _WORKER_DEVICE is None or _WORKER_CONFIG is None:
+        raise RuntimeError("DAgger worker was not initialized")
+    if _WORKER_FAST_PLANNER_CFG is None or _WORKER_FULL_PLANNER_CFG is None:
+        raise RuntimeError("DAgger worker planner configs were not initialized")
+    episode_index, episode = job
+    result = _rollout_episode(
+        model=_WORKER_MODEL,
+        device=_WORKER_DEVICE,
+        episode=episode,
+        config=_WORKER_CONFIG,
+        fast_planner_cfg=_WORKER_FAST_PLANNER_CFG,
+        full_planner_cfg=_WORKER_FULL_PLANNER_CFG,
+    )
+    result["episode_index"] = episode_index
+    return result
+
+
+def _write_episode_result(f, episode_result: dict[str, object]) -> None:
+    for record in episode_result["corrections"]:
+        f.write(json.dumps(record, ensure_ascii=True) + "\n")
+    f.flush()
+    episode_profile = {
+        "episode_id": episode_result["episode_id"],
+        "point_a": episode_result["point_a"],
+        "point_b": episode_result["point_b"],
+    }
+    print(f"episode_profile: {json.dumps(episode_profile, ensure_ascii=True)}", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate DAgger corrective samples from calibrated sim-nero rollouts")
     parser.add_argument(
@@ -447,6 +629,19 @@ def main() -> None:
         default=str(REPO_ROOT / "experiments" / "nero_sim" / "outputs" / "dagger_calibrated.jsonl"),
     )
     parser.add_argument("--episodes", type=int, default=64, help="Number of dataset episodes to roll out")
+    parser.add_argument("--workers", type=int, default=1, help="Number of episode-level worker processes")
+    parser.add_argument(
+        "--worker-device",
+        choices=["cpu", "cuda"],
+        default="cpu",
+        help="Device used inside DAgger worker processes; CPU is usually faster overall for planner-bound rollouts",
+    )
+    parser.add_argument(
+        "--worker-torch-threads",
+        type=int,
+        default=1,
+        help="Torch intra-op threads per worker process; use 0 to keep PyTorch default",
+    )
     parser.add_argument("--max-steps", type=int, default=80)
     parser.add_argument("--success-tol-mm", type=float, default=12.0)
     parser.add_argument("--teacher-mode", choices=["every_step_staged", "every_step_fast", "cached_staged"], default="cached_staged")
@@ -467,38 +662,48 @@ def main() -> None:
     parser.add_argument("--consistency-cosine-min", type=float, default=0.25)
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_policy(args.checkpoint, device)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     started_at = time.perf_counter()
-    summary = {
-        "episodes": 0,
-        "point_a_successes": 0,
-        "point_b_successes": 0,
-        "correction_records": 0,
-        "cached_labels": 0,
-        "fast_replans": 0,
-        "heavy_replans": 0,
-        "consistency_rejects": 0,
-        "skipped_records": 0,
-    }
-    success_tol_m = args.success_tol_mm / 1000.0
-    fast_planner_cfg = motion_plan_config_for_preset(args.planner_preset, tolerance_m=min(success_tol_m, 0.01))
-    full_planner_cfg = motion_plan_config_for_preset("full_staged", tolerance_m=min(success_tol_m, 0.004))
+    summary = _empty_summary()
+    config = DaggerRunConfig(
+        max_steps=args.max_steps,
+        success_tol_m=args.success_tol_mm / 1000.0,
+        teacher_mode=args.teacher_mode,
+        planner_preset=args.planner_preset,
+        replan_interval=args.replan_interval,
+        replan_tcp_threshold_m=args.replan_tcp_threshold_mm / 1000.0,
+        replan_joint_threshold_rad=args.replan_joint_threshold_rad,
+        min_record_error_m=args.min_record_error_mm / 1000.0,
+        keep_every_n_success=args.keep_every_n_success,
+        hard_case_full_recheck=args.hard_case_full_recheck,
+        cached_correction_gain=args.cached_correction_gain,
+        max_teacher_delta_rad=args.max_teacher_delta_rad,
+        enable_teacher_consistency=args.enable_teacher_consistency,
+        consistency_correction_gain=args.consistency_correction_gain,
+        consistency_joint_threshold_rad=args.consistency_joint_threshold_rad,
+        consistency_tcp_threshold_m=args.consistency_tcp_threshold_mm / 1000.0,
+        consistency_action_l2_threshold_rad=args.consistency_action_l2_threshold_rad,
+        consistency_cosine_min=args.consistency_cosine_min,
+    )
+    workers = max(1, int(args.workers))
+    if args.episodes <= 0:
+        raise ValueError("--episodes must be greater than 0")
+    episodes = [load_episode(args.dataset, episode_idx) for episode_idx in range(args.episodes)]
+    total_episodes = len(episodes)
 
     def _print_progress(current_episode: int) -> None:
         elapsed = max(time.perf_counter() - started_at, 1e-6)
         avg_per_episode = elapsed / max(current_episode, 1)
-        remaining = max(args.episodes - current_episode, 0)
+        remaining = max(total_episodes - current_episode, 0)
         eta = remaining * avg_per_episode
         bar_width = 24
-        progress = current_episode / max(args.episodes, 1)
+        progress = current_episode / max(total_episodes, 1)
         filled = int(round(progress * bar_width))
         bar = "#" * filled + "-" * (bar_width - filled)
         print(
-            f"[{bar}] {current_episode}/{args.episodes} "
+            f"[{bar}] {current_episode}/{total_episodes} "
             f"elapsed={elapsed/60.0:.1f}m "
             f"eta={eta/60.0:.1f}m "
             f"corr={summary['correction_records']} "
@@ -512,84 +717,47 @@ def main() -> None:
         )
 
     with output_path.open("w", encoding="utf-8") as f:
-        print(f"Generating DAgger corrections -> {output_path}", flush=True)
-        for episode_idx in range(args.episodes):
-            episode = load_episode(args.dataset, episode_idx)
-            episode_id = int(episode["episode_id"])
-            q_home = deg_to_rad(HOME_ANGLES_DEG)
-            point_a_xyz = list(episode["point_a"]["xyz_m"])
-            corr_a, q_after_a, result_a, profile_a = rollout_with_corrections(
-                model,
-                start_q_rad=q_home,
-                target_xyz=point_a_xyz,
-                episode_id=episode_id,
-                segment="point_a",
-                device=device,
-                max_steps=args.max_steps,
-                success_tol_m=success_tol_m,
-                teacher_mode=args.teacher_mode,
-                fast_planner_cfg=fast_planner_cfg,
-                full_planner_cfg=full_planner_cfg,
-                replan_interval=args.replan_interval,
-                replan_tcp_threshold_m=args.replan_tcp_threshold_mm / 1000.0,
-                replan_joint_threshold_rad=args.replan_joint_threshold_rad,
-                min_record_error_m=args.min_record_error_mm / 1000.0,
-                keep_every_n_success=args.keep_every_n_success,
-                hard_case_full_recheck=args.hard_case_full_recheck,
-                cached_correction_gain=args.cached_correction_gain,
-                max_teacher_delta_rad=args.max_teacher_delta_rad,
-                enable_teacher_consistency=args.enable_teacher_consistency,
-                consistency_correction_gain=args.consistency_correction_gain,
-                consistency_joint_threshold_rad=args.consistency_joint_threshold_rad,
-                consistency_tcp_threshold_m=args.consistency_tcp_threshold_mm / 1000.0,
-                consistency_action_l2_threshold_rad=args.consistency_action_l2_threshold_rad,
-                consistency_cosine_min=args.consistency_cosine_min,
-            )
-            point_b_xyz = list(episode["point_b"]["xyz_m"])
-            corr_b, _q_after_b, result_b, profile_b = rollout_with_corrections(
-                model,
-                start_q_rad=q_after_a,
-                target_xyz=point_b_xyz,
-                episode_id=episode_id,
-                segment="point_b",
-                device=device,
-                max_steps=args.max_steps,
-                success_tol_m=success_tol_m,
-                teacher_mode=args.teacher_mode,
-                fast_planner_cfg=fast_planner_cfg,
-                full_planner_cfg=full_planner_cfg,
-                replan_interval=args.replan_interval,
-                replan_tcp_threshold_m=args.replan_tcp_threshold_mm / 1000.0,
-                replan_joint_threshold_rad=args.replan_joint_threshold_rad,
-                min_record_error_m=args.min_record_error_mm / 1000.0,
-                keep_every_n_success=args.keep_every_n_success,
-                hard_case_full_recheck=args.hard_case_full_recheck,
-                cached_correction_gain=args.cached_correction_gain,
-                max_teacher_delta_rad=args.max_teacher_delta_rad,
-                enable_teacher_consistency=args.enable_teacher_consistency,
-                consistency_correction_gain=args.consistency_correction_gain,
-                consistency_joint_threshold_rad=args.consistency_joint_threshold_rad,
-                consistency_tcp_threshold_m=args.consistency_tcp_threshold_mm / 1000.0,
-                consistency_action_l2_threshold_rad=args.consistency_action_l2_threshold_rad,
-                consistency_cosine_min=args.consistency_cosine_min,
-            )
-            for record in corr_a + corr_b:
-                f.write(json.dumps(record, ensure_ascii=True) + "\n")
-
-            summary["episodes"] += 1
-            summary["point_a_successes"] += int(bool(result_a["success"]))
-            summary["point_b_successes"] += int(bool(result_b["success"]))
-            summary["correction_records"] += len(corr_a) + len(corr_b)
-            for key in ("cached_labels", "fast_replans", "heavy_replans", "consistency_rejects", "skipped_records"):
-                summary[key] += int(profile_a.to_summary()[key]) + int(profile_b.to_summary()[key])
-            f.flush()
-            episode_profile = {
-                "episode_id": episode_id,
-                "point_a": result_a,
-                "point_b": result_b,
-            }
-            print(f"episode_profile: {json.dumps(episode_profile, ensure_ascii=True)}", flush=True)
-            _print_progress(summary["episodes"])
+        print(f"Generating DAgger corrections -> {output_path} workers={workers}", flush=True)
+        if workers == 1:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            model = load_policy(args.checkpoint, device)
+            fast_planner_cfg = motion_plan_config_for_preset(config.planner_preset, tolerance_m=min(config.success_tol_m, 0.01))
+            full_planner_cfg = motion_plan_config_for_preset("full_staged", tolerance_m=min(config.success_tol_m, 0.004))
+            for episode_idx, episode in enumerate(episodes):
+                episode_result = _rollout_episode(
+                    model=model,
+                    device=device,
+                    episode=episode,
+                    config=config,
+                    fast_planner_cfg=fast_planner_cfg,
+                    full_planner_cfg=full_planner_cfg,
+                )
+                episode_result["episode_index"] = episode_idx
+                _write_episode_result(f, episode_result)
+                _update_summary(summary, episode_result)
+                _print_progress(summary["episodes"])
+        else:
+            if args.worker_device == "cuda" and not torch.cuda.is_available():
+                raise RuntimeError("Requested --worker-device cuda, but torch.cuda.is_available() is false")
+            pending_by_index: dict[int, dict[str, object]] = {}
+            next_to_write = 0
+            max_workers = min(workers, total_episodes)
+            worker_jobs = [(idx, episode) for idx, episode in enumerate(episodes)]
+            with ProcessPoolExecutor(
+                max_workers=max_workers,
+                initializer=_init_worker,
+                initargs=(str(args.checkpoint), config, args.worker_device, args.worker_torch_threads),
+            ) as executor:
+                futures = [executor.submit(_rollout_episode_worker, job) for job in worker_jobs]
+                for future in as_completed(futures):
+                    episode_result = future.result()
+                    pending_by_index[int(episode_result["episode_index"])] = episode_result
+                    while next_to_write in pending_by_index:
+                        ordered_result = pending_by_index.pop(next_to_write)
+                        _write_episode_result(f, ordered_result)
+                        _update_summary(summary, ordered_result)
+                        _print_progress(summary["episodes"])
+                        next_to_write += 1
 
     print(json.dumps(summary, indent=2))
     print(f"saved_dagger_dataset: {output_path}")
