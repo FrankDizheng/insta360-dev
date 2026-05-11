@@ -1,0 +1,115 @@
+{
+  "schema": "nero.sim_scene_exchange.v2",
+  "timestamp": "2026-05-11T15:59:00+08:00",
+  "robot": "NERO",
+  "purpose": "simulate_from_current_initial_pose_to_camera_detected_bottle",
+  "source": {
+    "scan_dir": "calibration/results/sim_exchange_current_bottle_2026-05-11",
+    "debug_result": "calibration/results/sim_exchange_current_bottle_2026-05-11/debug_result.json",
+    "scan_color": "calibration/results/sim_exchange_current_bottle_2026-05-11/scan_color.jpg",
+    "scan_depth_png_u16": "calibration/results/sim_exchange_current_bottle_2026-05-11/scan_depth.png",
+    "annotated_image": "calibration/results/sim_exchange_current_bottle_2026-05-11/annotated.jpg",
+    "note": "Robot was first moved to the recorded manual initial pose, then a dry-run RGBD scan was captured. No pick/place motion was executed."
+  },
+  "coordinate_frame": "robot_base",
+  "initial_state": {
+    "q_deg": [-15.035, -15.774, 2.132, 85.265, -2.178, 1.918, 51.456],
+    "q_rad": [-0.26241025, -0.27530824, 0.03721042, 1.48815499, -0.03801327, 0.03347542, 0.89807662],
+    "flange_pose_m_rad": [
+      -0.30916699999999997,
+      0.07723,
+      0.441148,
+      1.6103454876450882,
+      -0.538329354485131,
+      -0.2916096114232126
+    ],
+    "status_after_scan": {
+      "can0": "UP",
+      "arm_status_code": 0,
+      "arm_status": "normal",
+      "flange_xyz_m": [-0.30917, 0.07722, 0.44114],
+      "flange_rpy_rad": [1.61031, -0.53836, -0.29159]
+    }
+  },
+  "target": {
+    "semantic": "outer_bottle_cap",
+    "description": "Camera-detected center of the red screw cap on the bottle; use as the final target for planner/IK simulation unless a lower grasp point is explicitly generated.",
+    "pixel_uv": [616, 543],
+    "depth_mm": 277.0,
+    "xyz_m": [-0.36340544375089745, 0.08940718996825216, 0.28462281820403396],
+    "recommended_grasp_z_m": 0.27462281820403393
+  },
+  "reference_objects": {
+    "empty_slot": {
+      "pixel_uv": [936, 424],
+      "depth_mm": 347.0,
+      "xyz_m": [-0.38942663085572354, 0.2789906363966242, 0.2595467642065272]
+    }
+  },
+  "table_z_m": 0.229,
+  "table_z_estimate": {
+    "method": "Project sampled RGBD points from the latest scan to robot_base using scan flange pose + FLANGE_T_CAM; use left_bottle/lower_center workspace medians as tabletop estimate and ignore raised box/slot regions.",
+    "selected_table_z_m": 0.229,
+    "confidence": "estimated_from_depth_not_hand_measured",
+    "statistics_m": {
+      "all_valid": {
+        "p05": 0.219325,
+        "p25": 0.227043,
+        "median": 0.232749,
+        "p75": 0.280389,
+        "p95": 0.300616
+      },
+      "lower_center": {
+        "p05": 0.226264,
+        "p25": 0.228656,
+        "median": 0.231317,
+        "p75": 0.253145,
+        "p95": 0.296432
+      },
+      "left_bottle_area": {
+        "p05": -0.027791,
+        "p25": 0.224619,
+        "median": 0.227379,
+        "p75": 0.230383,
+        "p95": 0.285584
+      },
+      "right_box_area": {
+        "p05": 0.232001,
+        "p25": 0.263046,
+        "median": 0.287136,
+        "p75": 0.291307,
+        "p95": 0.311161
+      }
+    }
+  },
+  "camera": {
+    "intrinsics": {
+      "fx": 688.8853759765625,
+      "fy": 689.0834350585938,
+      "cx": 642.1575927734375,
+      "cy": 365.32281494140625,
+      "width": 1280,
+      "height": 720
+    },
+    "depth_scale": 1.0,
+    "flange_T_camera": [
+      [0.01984594, 0.36872915, -0.929325, 0.09973553],
+      [-0.01531797, -0.92928683, -0.36904113, 0.06435725],
+      [-0.9996857, 0.02155934, -0.01279439, -0.01483681],
+      [0.0, 0.0, 0.0, 1.0]
+    ]
+  },
+  "planner_constraints": {
+    "mode": "simulation_first_then_low_speed_real_robot",
+    "safe_z_m": 0.42,
+    "minimum_z_m": 0.05,
+    "table_clearance_min_m": 0.03,
+    "preferred_path": "joint-space or collision-checked Cartesian planner from initial_state.q_rad to a standoff above target.xyz_m, then generate a separate slow descent candidate only after simulation passes.",
+    "do_not": [
+      "Do not execute learned direct-control policy on the real robot for this test.",
+      "Do not treat table_z_m as hand-measured; it is estimated from the latest depth scan.",
+      "Do not descend below table_z_m + clearance unless the TCP/gripper geometry is explicitly modeled."
+    ]
+  },
+  "notes": "This file defines current robot pose as the initial simulation state and the camera-detected bottle cap as the final target. For grasp simulation, consider generating an approach target above the cap first, then a separate grasp target near recommended_grasp_z_m."
+}

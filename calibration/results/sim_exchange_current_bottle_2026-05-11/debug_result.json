@@ -1,0 +1,104 @@
+{
+  "config": {
+    "pi_url": "http://10.13.167.212:8765",
+    "vlm_base": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    "vlm_model": "qwen3-vl-flash",
+    "scan_pose_deg": [
+      -15.035,
+      -15.774,
+      2.132,
+      85.265,
+      -2.178,
+      1.918,
+      51.456
+    ],
+    "standoff_mm": 80,
+    "grasp_below_mm": 10,
+    "lift_z_mm": 420,
+    "bottle_height_mm": 95.0,
+    "place_clearance_mm": -3.0,
+    "grip_center_offset_y_mm": -15.0,
+    "grasp_template_rpy_rad": [
+      -0.9001,
+      -1.46119,
+      2.488
+    ],
+    "slot_refinement_mode": "seed_connected_component"
+  },
+  "scan": {
+    "flange_pose": [
+      -0.30916699999999997,
+      0.07723,
+      0.441148,
+      1.6103454876450882,
+      -0.538329354485131,
+      -0.2916096114232126
+    ],
+    "intrinsics": {
+      "fx": 688.8853759765625,
+      "fy": 689.0834350585938,
+      "cx": 642.1575927734375,
+      "cy": 365.32281494140625,
+      "width": 1280,
+      "height": 720
+    },
+    "depth_scale": 1.0
+  },
+  "vlm": {
+    "raw": "```json\n[\n  {\"name\": \"outer_bottle_cap\", \"u\": 0.48, \"v\": 0.75},\n  {\"name\": \"empty_slot\", \"u\": 0.73, \"v\": 0.59}\n]\n```",
+    "detections_px": {
+      "outer_bottle_cap": {
+        "u_px": 614,
+        "v_px": 540
+      },
+      "empty_slot": {
+        "u_px": 934,
+        "v_px": 424
+      }
+    }
+  },
+  "refined": {
+    "outer_bottle_cap": {
+      "u_px": 616,
+      "v_px": 543,
+      "depth_mm": 277.0,
+      "base_xyz_m": [
+        -0.36340544375089745,
+        0.08940718996825216,
+        0.28462281820403396
+      ]
+    },
+    "empty_slot": {
+      "u_px": 936,
+      "v_px": 424,
+      "depth_mm": 347.0,
+      "base_xyz_m": [
+        -0.38942663085572354,
+        0.2789906363966242,
+        0.2595467642065272
+      ]
+    }
+  },
+  "motion_plan": {
+    "grasp_z_mm": 274.62281820403393,
+    "place_z_mm": null
+  },
+  "timing": [
+    {
+      "label": "move_j -> scan pose",
+      "seconds": 0.3919
+    },
+    {
+      "label": "scan + decode",
+      "seconds": 0.4573
+    },
+    {
+      "label": "VLM inference",
+      "seconds": 3.6038
+    },
+    {
+      "label": "seeded refine + 3D",
+      "seconds": 0.0255
+    }
+  ]
+}
