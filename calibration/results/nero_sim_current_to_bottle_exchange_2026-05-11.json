@@ -46,11 +46,17 @@
       "xyz_m": [-0.38942663085572354, 0.2789906363966242, 0.2595467642065272]
     }
   },
-  "table_z_m": 0.229,
+  "table_z_m": 0.25,
   "table_z_estimate": {
-    "method": "Project sampled RGBD points from the latest scan to robot_base using scan flange pose + FLANGE_T_CAM; use left_bottle/lower_center workspace medians as tabletop estimate and ignore raised box/slot regions.",
-    "selected_table_z_m": 0.229,
-    "confidence": "estimated_from_depth_not_hand_measured",
+    "method": "Use manually measured table height as the authoritative simulation safety plane. Keep RGBD-derived statistics below as a reference only.",
+    "selected_table_z_m": 0.25,
+    "confidence": "manual_measurement_authoritative",
+    "manual_measurement_m": 0.25,
+    "depth_estimate_selected_before_manual_correction_m": 0.229,
+    "previous_scene_reference_m": {
+      "blue_board_z_range_m": [0.24026, 0.24687],
+      "recent_empty_slot_z_m": [0.24048, 0.25239, 0.25955]
+    },
     "statistics_m": {
       "all_valid": {
         "p05": 0.219325,
@@ -107,9 +113,9 @@
     "preferred_path": "joint-space or collision-checked Cartesian planner from initial_state.q_rad to a standoff above target.xyz_m, then generate a separate slow descent candidate only after simulation passes.",
     "do_not": [
       "Do not execute learned direct-control policy on the real robot for this test.",
-      "Do not treat table_z_m as hand-measured; it is estimated from the latest depth scan.",
+      "Treat table_z_m as the manually measured table height for simulation safety checks.",
       "Do not descend below table_z_m + clearance unless the TCP/gripper geometry is explicitly modeled."
     ]
   },
-  "notes": "This file defines current robot pose as the initial simulation state and the camera-detected bottle cap as the final target. For grasp simulation, consider generating an approach target above the cap first, then a separate grasp target near recommended_grasp_z_m."
+  "notes": "This file defines current robot pose as the initial simulation state and the camera-detected bottle cap as the final target. table_z_m was corrected to the manually measured 250 mm value; the RGBD-derived 229 mm estimate is retained only as a diagnostic reference. For grasp simulation, consider generating an approach target above the cap first, then a separate grasp target near recommended_grasp_z_m."
 }
