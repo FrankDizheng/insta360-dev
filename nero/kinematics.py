@@ -6,6 +6,12 @@ visualization and rough reach checks.
 
 DH convention (standard Craig): each row is (a, alpha, d, theta_offset_rad).
 Joint angle q_i is added to theta_offset for link i.
+
+For the simulation baseline we also attach a simple tool TCP model for the
+stock two-finger gripper.  The true geometry can be refined later from the
+official 3D model / CAD, but for now we approximate the TCP as the top-front
+centre of the standard gripper, 132 mm away from the flange along the local
+tool forward axis.
 """
 
 from __future__ import annotations
@@ -28,6 +34,17 @@ _NERO_DH_ROWS: list[tuple[float, float, float, float]] = [
     (0.0, math.pi / 2, 0.0235, 0.0),
 ]
 
+# Approximate flange -> stock gripper TCP offset used in simulation.
+# The offset is modelled along flange +X, which matches the outward direction
+# of the arm in the home pose under the current DH chain.
+DEFAULT_TOOL_TCP_OFFSET_X_M = 0.132
+
+
+def _tool_tcp_transform(offset_x_m: float = DEFAULT_TOOL_TCP_OFFSET_X_M) -> np.ndarray:
+    t = np.eye(4, dtype=np.float64)
+    t[0, 3] = float(offset_x_m)
+    return t
+
 
 def _dh_matrix(theta: float, d: float, a: float, alpha: float) -> np.ndarray:
     ct, st = math.cos(theta), math.sin(theta)
@@ -48,7 +65,7 @@ def forward_kinematics(
     *,
     clamp: bool = True,
 ) -> dict[str, np.ndarray]:
-    """Compute link origins in base frame and flange homogeneous transform.
+    """Compute link origins plus flange / TCP transforms in base frame.
 
     Parameters
     ----------
@@ -62,6 +79,8 @@ def forward_kinematics(
     dict with keys:
         ``link_positions`` — shape (8, 3): base origin + after each of 7 joints.
         ``flange_T`` — 4x4 homogeneous transform base_T_flange.
+        ``tcp_T`` — 4x4 homogeneous transform base_T_tcp (tool-tip approximation).
+        ``tcp_position`` — shape (3,), tool-tip XYZ in base frame.
     """
     if len(joint_angles_rad) < NUM_JOINTS:
         raise ValueError(f"Need {NUM_JOINTS} joint angles, got {len(joint_angles_rad)}")
@@ -78,9 +97,12 @@ def forward_kinematics(
         t_acc = t_acc @ a_i
         positions.append(t_acc[:3, 3].copy())
 
+    tcp_t = t_acc @ _tool_tcp_transform()
     return {
         "link_positions": np.stack(positions, axis=0),
         "flange_T": t_acc,
+        "tcp_T": tcp_t,
+        "tcp_position": tcp_t[:3, 3].copy(),
     }
 
 
@@ -90,10 +112,17 @@ def flange_position(joint_angles_rad: Sequence[float], *, clamp: bool = True) ->
     return fk["flange_T"][:3, 3].copy()
 
 
+def tcp_position(joint_angles_rad: Sequence[float], *, clamp: bool = True) -> np.ndarray:
+    """Approximate stock-gripper TCP XYZ in base frame (metres)."""
+    fk = forward_kinematics(joint_angles_rad, clamp=clamp)
+    return fk["tcp_position"].copy()
+
+
 def approximate_reach_m() -> float:
     """Rough max radial reach from DH link lengths (upper bound, not exact workspace)."""
     # Sum of |d| and |a| along chain as a crude ballpark
     total = 0.0
     for a, _alpha, d, _off in _NERO_DH_ROWS:
         total += abs(a) + abs(d)
+    total += DEFAULT_TOOL_TCP_OFFSET_X_M
     return float(total)

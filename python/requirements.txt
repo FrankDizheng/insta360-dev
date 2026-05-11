@@ -16,3 +16,8 @@ matplotlib>=3.7.0
 
 # Utilities
 python-dotenv>=1.0.0
+
+# Learning / trajectory policy training
+# CUDA wheel install on RTX 40xx / Windows:
+# python -m pip install --force-reinstall "https://mirrors.aliyun.com/pytorch-wheels/cu128/torch-2.11.0%2Bcu128-cp313-cp313-win_amd64.whl"
+torch

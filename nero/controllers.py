@@ -15,7 +15,10 @@ import os
 import time
 from abc import ABC, abstractmethod
 
+from nero.kinematics import forward_kinematics
+from nero.planning import deg_to_rad, interpolate_joint_path, plan_joint_motion, rad_to_deg
 from nero.types import (
+    HOME_ANGLES_DEG,
     NUM_JOINTS,
     ArmState,
     FATAL_ARM_STATUS_CODES,
@@ -204,6 +207,141 @@ class MockRobotController(BaseRobotController):
     def stop(self) -> bool:
         self._last_action = "stop"
         print("[Mock] Stop")
+        return True
+
+
+# =========================================================================
+#  Simulated NERO controller — early digital twin for planning
+# =========================================================================
+
+class SimNeroController(BaseRobotController):
+    """Lightweight NERO controller backed by local FK + numeric IK planning.
+
+    This is not a physics simulator yet; it is an execution harness for:
+      - NERO joint limits
+      - position-only IK against the local DH model
+      - smooth joint interpolation and high-level actions
+
+    It gives the rest of the stack a NERO-shaped target while the full URDF /
+    physics scene is still under construction.
+    """
+
+    def __init__(self, sleep_s: float = 0.01, hover_offset_m: float = 0.12, lower_offset_m: float = 0.01):
+        super().__init__()
+        self._sleep = sleep_s
+        self._hover_offset_m = hover_offset_m
+        self._lower_offset_m = lower_offset_m
+        self._angles_deg = list(HOME_ANGLES_DEG)
+        self._gripper_width = 0.08
+        self._last_action = ""
+        self._last_plan_reason = "idle"
+        self._path_history_deg: list[list[float]] = []
+
+    def _flange_pose(self) -> FlangePose:
+        q_rad = deg_to_rad(self._angles_deg)
+        fk = forward_kinematics(q_rad)
+        flange_t = fk["flange_T"]
+        pos = flange_t[:3, 3]
+        return FlangePose(x=float(pos[0]), y=float(pos[1]), z=float(pos[2]))
+
+    def _execute_path_rad(self, path_rad: list[list[float]]) -> bool:
+        if not path_rad:
+            return False
+        for waypoint in path_rad:
+            self._angles_deg = clamp_joints(rad_to_deg(waypoint))
+            self._path_history_deg.append(list(self._angles_deg))
+            time.sleep(self._sleep)
+        return True
+
+    def _move_to_cartesian(self, target_pos: Position3D, *, z_offset_m: float) -> bool:
+        current_rad = deg_to_rad(self._angles_deg)
+        target_xyz = [target_pos.x, target_pos.y, target_pos.z + z_offset_m]
+        plan = plan_joint_motion(target_xyz, current_rad)
+        self._last_plan_reason = plan.reason
+        if not plan.path_rad:
+            print(f"[SimNERO] Planning failed: {plan.reason}")
+            return False
+        if not plan.ok:
+            print(
+                f"[SimNERO] Warning: planning ended with {plan.reason}, "
+                f"position_error={plan.position_error_m:.4f}m"
+            )
+        return self._execute_path_rad(plan.path_rad)
+
+    def connect(self):
+        self.connected = True
+        self._angles_deg = list(HOME_ANGLES_DEG)
+        self._last_action = "connect"
+        self._last_plan_reason = "connected"
+        print("[SimNERO] Connected")
+
+    def disconnect(self):
+        self.connected = False
+        self._last_action = "disconnect"
+        print("[SimNERO] Disconnected")
+
+    def get_state(self) -> ArmState:
+        return ArmState(
+            connected=self.connected,
+            enabled=self.connected,
+            mode="sim-nero",
+            joint_angles_deg=list(self._angles_deg),
+            flange_pose=self._flange_pose(),
+            gripper=GripperState(
+                width=self._gripper_width,
+                available=True,
+                enabled=True,
+                homed=True,
+            ),
+            error_msg="" if self.connected else "disconnected",
+        )
+
+    def home(self) -> bool:
+        self._last_action = "home"
+        return self.move_joints(HOME_ANGLES_DEG)
+
+    def move_joints(self, target_deg: list[float], settle_s: float = MOVE_SETTLE_S) -> bool:
+        safe = clamp_joints(target_deg)
+        self._last_action = f"move_joints:{safe}"
+        path_rad = interpolate_joint_path(deg_to_rad(self._angles_deg), deg_to_rad(safe))
+        ok = self._execute_path_rad(path_rad)
+        time.sleep(min(settle_s, 0.2))
+        return ok
+
+    def move_joint_relative(self, joint_index: int, delta_deg: float) -> bool:
+        target = list(self._angles_deg)
+        target[joint_index] += delta_deg
+        return self.move_joints(target)
+
+    def open_gripper(self, width: float = 0.08, force: float = 1.0) -> bool:
+        self._gripper_width = width
+        self._last_action = "open_gripper"
+        time.sleep(self._sleep)
+        return True
+
+    def close_gripper(self, force: float = 1.0) -> bool:
+        self._gripper_width = 0.0
+        self._last_action = "close_gripper"
+        time.sleep(self._sleep)
+        return True
+
+    def move_above(self, target_name: str, target_pos: Position3D | None = None) -> bool:
+        self._last_action = f"move_above:{target_name}"
+        if target_pos is None:
+            print(f"[SimNERO] move_above '{target_name}' missing target_pos")
+            return False
+        return self._move_to_cartesian(target_pos, z_offset_m=self._hover_offset_m)
+
+    def lower(self, target_name: str, target_pos: Position3D | None = None) -> bool:
+        self._last_action = f"lower:{target_name}"
+        if target_pos is None:
+            print(f"[SimNERO] lower '{target_name}' missing target_pos")
+            return False
+        return self._move_to_cartesian(target_pos, z_offset_m=self._lower_offset_m)
+
+    def stop(self) -> bool:
+        self._last_action = "stop"
+        self._last_plan_reason = "stopped"
         return True
 
 
@@ -473,6 +611,8 @@ def get_robot_controller(mode: str | None = None) -> BaseRobotController:
     selected = (mode or os.getenv("ROBOT_MODE", "mock")).lower()
     if selected == "nero":
         return NeroRobotController()
+    if selected in {"sim-nero", "nero-sim", "sim"}:
+        return SimNeroController()
     return MockRobotController()
 
 

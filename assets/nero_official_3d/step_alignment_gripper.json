@@ -1,0 +1,30 @@
+{
+  "source_note": "Derived from official STEP geometry by vertex-cloud slab analysis.",
+  "step_file": "D:\\Project\\insta360-dev\\assets\\nero_official_3d\\official_step\\NERO\u5939\u722a\u7248\u5916\u53d1.STEP",
+  "primary_axis": "z",
+  "tool_end": "max",
+  "tcp_offset_m": 0.132,
+  "table_z_m": -0.040000000000000424,
+  "base_to_table_offset_m": 0.040000000000000424,
+  "bbox": {
+    "xmin": -0.08199999999999372,
+    "xmax": 0.08200000000000907,
+    "ymin": -0.004000000000000007,
+    "ymax": 0.17610202225136998,
+    "zmin": -0.040000000000000424,
+    "zmax": 0.7550000000000092,
+    "xlen": 0.16400000000000278,
+    "ylen": 0.18010202225136998,
+    "zlen": 0.7950000000000097
+  },
+  "tool_end_slab": {
+    "length_m": 0.13199999999999273,
+    "width_axis": "x",
+    "width_m": 0.16400000000000278,
+    "height_axis": "y",
+    "height_m": 0.07312904475739057,
+    "tip_coord_m": 0.7550000000000092
+  },
+  "jaw_length_m": 0.13199999999999273,
+  "jaw_outer_width_m": 0.16400000000000278
+}
