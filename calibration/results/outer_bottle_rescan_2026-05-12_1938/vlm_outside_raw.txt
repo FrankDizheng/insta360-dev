@@ -1,0 +1,3 @@
+```json
+{"outside_bottle_body":[350, 821], "outside_bottle_cap": [352, 914]}
+```

@@ -1,0 +1,6 @@
+This is a 1280x720 robot camera image. Valid pixel u is 0..1279; valid pixel v is 0..719.
+There is a red box/tray with bottles inside, and there is ONE separate clear bottle OUTSIDE the box on the table.
+Find ONLY the separate outside bottle. Ignore the red box/tray and every bottle inside the box.
+The outside bottle is a transparent cylindrical bottle lying on the table, with a small red/pink cap/ring.
+Return strict JSON only, no markdown: {"outside_bottle_body":[u,v],"outside_bottle_cap":[u,v],"confidence":0.0}
+Use integer pixel coordinates inside the image. If unsure, set confidence below 0.5.

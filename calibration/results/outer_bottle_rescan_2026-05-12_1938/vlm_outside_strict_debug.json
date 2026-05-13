@@ -1,0 +1,30 @@
+{
+  "timestamp_utc": "2026-05-12T11:48:58.825884+00:00",
+  "raw": "```json\n{\"outside_bottle_body\":[352, 810], \"outside_bottle_cap\": [352, 910], \"confidence\": 1.0}\n```",
+  "parsed": {
+    "outside_bottle_body": [
+      352,
+      810
+    ],
+    "outside_bottle_cap": [
+      352,
+      910
+    ],
+    "confidence": 1.0
+  },
+  "parse_error": null,
+  "detections_px": {
+    "outside_bottle_body": {
+      "u_px": 352,
+      "v_px": 810,
+      "in_bounds": false
+    },
+    "outside_bottle_cap": {
+      "u_px": 352,
+      "v_px": 910,
+      "in_bounds": false
+    }
+  },
+  "all_in_bounds": false,
+  "note": "No robot motion."
+}

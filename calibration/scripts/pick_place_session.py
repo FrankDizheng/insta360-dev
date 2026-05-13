@@ -29,6 +29,7 @@ import requests
 _TAG = "[session]"
 DEFAULT_BRIDGE_URL = os.getenv("PI_BRIDGE_URL", "http://10.13.167.212:8765").rstrip("/")
 DEFAULT_GRIPPER_WIDTH_M = 0.06
+DEFAULT_CAP_GRASP_WIDTH_M = 0.032
 
 
 def _confirm(prompt: str) -> bool:
@@ -201,6 +202,39 @@ def _search_depth_anchor_below(depth_u16: np.ndarray, depth_scale: float,
     return None
 
 
+def _search_depth_anchor_nearby(depth_u16: np.ndarray, depth_scale: float,
+                                preferred_uv: tuple[int, int],
+                                downward_px: int = 140,
+                                upward_px: int = 20,
+                                lateral_px: int = 40,
+                                window: int = 7) -> tuple[int, int, float] | None:
+    h, w = depth_u16.shape
+    u0, v0 = preferred_uv
+    best: tuple[tuple[int, int, int], int, int, float] | None = None
+
+    for dv in range(-upward_px, downward_px + 1):
+        v = v0 + dv
+        if v < 0 or v >= h:
+            continue
+
+        # Prefer anchors at or below the cap center, then minimize lateral drift.
+        vertical_rank = dv if dv >= 0 else downward_px + abs(dv)
+        for du in _ordered_lateral_offsets(lateral_px):
+            u = u0 + du
+            if u < 0 or u >= w:
+                continue
+            depth_m = _depth_at_pixel(depth_u16, u, v, depth_scale, window=window)
+            if depth_m is None or depth_m <= 0:
+                continue
+            rank = (vertical_rank, abs(du), abs(dv))
+            if best is None or rank < best[0]:
+                best = (rank, u, v, depth_m)
+
+    if best is None:
+        return None
+    return best[1], best[2], best[3]
+
+
 def _extract_white_bottle_candidates(scan: dict, max_u_frac: float = 0.55) -> tuple[np.ndarray, list[dict]]:
     color = scan["color_bgr"]
     depth_u16 = scan["depth_u16"]
@@ -220,6 +254,55 @@ def _extract_white_bottle_candidates(scan: dict, max_u_frac: float = 0.55) -> tu
         and 0.10 <= comp["depth_m"] <= 0.60
         and comp["centroid"][1] > h * 0.45
     ]
+    return mask, candidates
+
+
+def _extract_rgb_cap_candidates(scan: dict, max_u_frac: float = 0.65) -> tuple[np.ndarray, list[dict]]:
+    color = scan["color_bgr"]
+    depth_u16 = scan["depth_u16"]
+    depth_scale = scan["depth_scale"]
+    h, w = depth_u16.shape
+
+    gray = cv2.cvtColor(color, cv2.COLOR_BGR2GRAY)
+    hsv = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
+    mask = (
+        (gray >= 185)
+        & (hsv[:, :, 1] <= 90)
+    ).astype(np.uint8) * 255
+    mask[:, int(w * max_u_frac):] = 0
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+
+    components = _extract_components(mask, depth_u16, depth_scale)
+    candidates: list[dict] = []
+    for comp in components:
+        x, y, width_px, height_px = comp["bbox"]
+        if comp["area"] < 600 or comp["area"] > 20000:
+            continue
+        if x <= 4 or y <= 4 or x + width_px >= int(w * max_u_frac) - 4:
+            continue
+        if comp["centroid"][1] < h * 0.18:
+            continue
+
+        aspect = float(width_px) / max(float(height_px), 1.0)
+        if not (0.55 <= aspect <= 1.80):
+            continue
+
+        extent = float(comp["area"]) / max(float(width_px * height_px), 1.0)
+        if extent < 0.45:
+            continue
+
+        region = comp["mask"]
+        brightness = float(gray[region].mean()) if np.any(region) else 0.0
+        mean_saturation = float(hsv[:, :, 1][region].mean()) if np.any(region) else 255.0
+        candidates.append({
+            **comp,
+            "aspect": aspect,
+            "extent": extent,
+            "brightness": brightness,
+            "mean_saturation": mean_saturation,
+        })
+
     return mask, candidates
 
 
@@ -280,72 +363,51 @@ def _detect_bottle_cap(scan: dict) -> dict | None:
     if "_cached_bottle_cap" in scan:
         return scan["_cached_bottle_cap"]
 
-    color = scan["color_bgr"]
     depth_u16 = scan["depth_u16"]
     depth_scale = scan["depth_scale"]
     h, w = depth_u16.shape
 
-    mask, candidates = _extract_white_bottle_candidates(scan)
-    if not candidates:
+    _mask, cap_candidates = _extract_rgb_cap_candidates(scan)
+    if not cap_candidates:
         scan["_cached_bottle_cap"] = None
         return None
 
-    body = max(candidates, key=lambda comp: comp["area"])
-    body_x, body_y, body_w, body_h = body["bbox"]
-    gray = cv2.cvtColor(color, cv2.COLOR_BGR2GRAY)
-    hsv = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
-
-    bright_mask = (
-        (gray >= 220)
-        & (hsv[:, :, 1] <= 55)
-        & body["mask"]
-    ).astype(np.uint8) * 255
-    roi_mask = np.zeros_like(bright_mask)
-    roi_mask[
-        body_y:min(h, body_y + int(body_h * 0.55)),
-        body_x:min(w, body_x + int(body_w * 0.60)),
-    ] = 255
-    bright_mask = cv2.bitwise_and(bright_mask, roi_mask)
-    bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
-
     bg_depth_m, fg_candidates = _extract_depth_foreground_candidates(scan)
-    num, labels, stats, centroids = cv2.connectedComponentsWithStats(bright_mask)
     best: dict | None = None
 
-    for label in range(1, num):
-        x, y, width_px, height_px, area = stats[label]
-        if area < 300:
-            continue
-        aspect = float(width_px) / max(float(height_px), 1.0)
-        if not (0.55 <= aspect <= 1.65):
-            continue
-        raw_center_u = float(centroids[label][0])
-        raw_center_v = float(centroids[label][1])
-        if raw_center_u > body_x + body_w * 0.62 or raw_center_v > body_y + body_h * 0.58:
-            continue
+    for cap in cap_candidates:
+        x, y, width_px, height_px = cap["bbox"]
+        area = cap["area"]
+        raw_center_u = float(cap["centroid"][0])
+        raw_center_v = float(cap["centroid"][1])
 
-        # The visible white cap highlight is systematically biased toward the
-        # camera-facing side. Shift the pick center modestly back toward the
-        # bottle axis so hover stays centered over the neck instead of the
-        # bright left rim.
-        center_u = raw_center_u + float(width_px) * 0.20
+        # The visible cap face is still slightly biased toward the camera-facing
+        # rim, so nudge the target a little toward the bottle axis.
+        center_u = raw_center_u + min(float(width_px), float(height_px)) * 0.10
         center_v = raw_center_v
 
-        u_i = int(round(center_u))
-        v_i = int(round(center_v))
-        patch = color[max(0, v_i - 6):min(h, v_i + 7), max(0, u_i - 6):min(w, u_i + 7)]
-        brightness = float(patch.mean()) if patch.size else 0.0
+        u_i = int(np.clip(round(center_u), 0, w - 1))
+        v_i = int(np.clip(round(center_v), 0, h - 1))
+        brightness = float(cap["brightness"])
         if brightness < 185.0:
             continue
 
-        depth_anchor = _search_depth_anchor_below(
+        depth_anchor = _search_depth_anchor_nearby(
             depth_u16,
             depth_scale,
             (u_i, v_i),
-            max_vertical_px=min(int(body_h * 0.75), 140),
-            lateral_px=max(18, int(body_w * 0.10)),
+            downward_px=max(80, int(height_px * 1.8)),
+            upward_px=max(12, int(height_px * 0.20)),
+            lateral_px=max(25, int(width_px * 0.80)),
         )
+        if depth_anchor is None:
+            depth_anchor = _search_depth_anchor_below(
+                depth_u16,
+                depth_scale,
+                (u_i, v_i),
+                max_vertical_px=max(80, int(height_px * 1.8)),
+                lateral_px=max(25, int(width_px * 0.80)),
+            )
         if depth_anchor is None and fg_candidates:
             depth_anchor = _nearest_depth_anchor_from_components(
                 fg_candidates,
@@ -355,16 +417,19 @@ def _detect_bottle_cap(scan: dict) -> dict | None:
             )
         if depth_anchor is None:
             continue
-        anchor_u, anchor_v, anchor_depth_m = depth_anchor
 
+        anchor_u, anchor_v, anchor_depth_m = depth_anchor
         radius_px = float(np.sqrt(float(area) / np.pi))
-        topness = 1.0 - ((center_v - body_y) / max(body_h, 1))
-        leftness = 1.0 - ((center_u - body_x) / max(body_w, 1))
+        topness = 1.0 - (raw_center_v / max(float(h), 1.0))
+        leftness = 1.0 - (raw_center_u / max(float(w), 1.0))
+        roundness = 1.0 - min(abs(float(cap["aspect"]) - 1.0), 1.0)
         score = (
-            brightness * 0.6
-            + topness * 40.0
-            + leftness * 25.0
-            + min(float(area) / 120.0, 60.0)
+            brightness * 0.45
+            + float(cap["extent"]) * 55.0
+            + roundness * 30.0
+            + topness * 18.0
+            + leftness * 8.0
+            + min(float(area) / 140.0, 55.0)
         )
         candidate = {
             "pixel_uv": [u_i, v_i],
@@ -373,9 +438,11 @@ def _detect_bottle_cap(scan: dict) -> dict | None:
             "depth_anchor_m": float(anchor_depth_m),
             "score": float(score),
             "reason": (
-                f"bright cap centroid {raw_center_u:.1f},{raw_center_v:.1f} "
+                f"rgb cap centroid {raw_center_u:.1f},{raw_center_v:.1f} "
                 f"-> adjusted center {center_u:.1f},{center_v:.1f} "
-                f"(area={int(area)}, bbox={int(width_px)}x{int(height_px)}, brightness={brightness:.0f}, "
+                f"(area={int(area)}, bbox={int(width_px)}x{int(height_px)}, "
+                f"aspect={cap['aspect']:.2f}, fill={cap['extent']:.2f}, "
+                f"brightness={brightness:.0f}, sat={cap['mean_saturation']:.0f}, "
                 f"depth anchor {anchor_u},{anchor_v}"
                 + (f", fg background~{bg_depth_m*1000:.0f} mm" if bg_depth_m is not None else "")
                 + ")"
@@ -534,7 +601,32 @@ def _estimate_bottle_width_from_cap(scan: dict, anchor_uv: tuple[int, int]) -> d
     }
 
 
+def _estimate_cap_gripper_width_from_prior(scan: dict, anchor_uv: tuple[int, int]) -> dict | None:
+    cap = _detect_bottle_cap(scan)
+    if cap is None:
+        return None
+
+    cap_uv = np.array(cap["pixel_uv"], dtype=np.float64)
+    anchor = np.array(anchor_uv, dtype=np.float64)
+    max_match_px = max(float(cap.get("cap_radius_px", 0.0)) * 1.5, 70.0)
+    if float(np.linalg.norm(anchor - cap_uv)) > max_match_px:
+        return None
+
+    width_m = float(DEFAULT_CAP_GRASP_WIDTH_M)
+    return {
+        "estimated_width_m": width_m,
+        "recommended_gripper_width_m": _recommend_gripper_width(width_m),
+        "source": (
+            f"cap grasp prior {width_m * 1000.0:.1f} mm "
+            f"(locked on {cap['reason']})"
+        ),
+    }
+
+
 def _estimate_bottle_gripper_width(scan: dict, anchor_uv: tuple[int, int]) -> dict | None:
+    cap_prior = _estimate_cap_gripper_width_from_prior(scan, anchor_uv)
+    if cap_prior is not None:
+        return cap_prior
     body = _estimate_bottle_width_from_depth(scan, anchor_uv)
     if body is not None:
         return body
@@ -873,18 +965,64 @@ def _apply_local_pick_offset(target_xyz: list[float], flange_pose: list[float] |
 
 _VLM_PROMPT = """\
 This image is from a robot arm camera looking down at a workspace.
-Identify the pixel coordinates (u=column, v=row) of each object listed.
+Identify the normalized image coordinates of each object listed.
 
 Objects to find: {object_list}
 
 Rules:
 - Return ONLY a JSON object, no explanation, no markdown fences.
-- Each key is the object name, each value is [u, v] integers.
-- Use the CENTER pixel of the object.
+- Each key is the object name, each value is [u, v] floats normalized 0-1.
+- top-left=(0,0), bottom-right=(1,1).
+- Use the CENTER of the object.
 - If an object is not visible, omit its key.
+- Do NOT return integer pixel coordinates.
 
-Example output: {{"bottle": [320, 240], "blue_board": [580, 310]}}
+Example output: {{"bottle": [0.472, 0.851], "blue_board": [0.736, 0.596]}}
 """
+
+
+def _parse_vlm_detection_coords(
+    name: str,
+    coords: object,
+    image_width: int,
+    image_height: int,
+) -> tuple[int, int] | None:
+    """Parse VLM coordinates.
+
+    The proven pick/place flow asks Qwen-VL for normalized 0-1 coordinates.
+    Asking for integer pixels has caused the model to emit invalid out-of-bounds
+    values, so normalized coordinates are the canonical protocol here.
+    """
+    if not isinstance(coords, (list, tuple)) or len(coords) != 2:
+        return None
+
+    try:
+        u_raw = float(coords[0])
+        v_raw = float(coords[1])
+    except (TypeError, ValueError):
+        return None
+
+    if 0.0 <= u_raw <= 1.0 and 0.0 <= v_raw <= 1.0:
+        u_px = int(round(u_raw * (image_width - 1)))
+        v_px = int(round(v_raw * (image_height - 1)))
+        return u_px, v_px
+
+    # Legacy fallback only. Keep this so old/manual endpoints do not break, but
+    # reject out-of-bounds integer outputs instead of silently clamping them.
+    u_px = int(round(u_raw))
+    v_px = int(round(v_raw))
+    if 0 <= u_px < image_width and 0 <= v_px < image_height:
+        print(
+            f"{_TAG} WARNING: VLM returned pixel coords for {name}; "
+            "normalized 0-1 coords are preferred."
+        )
+        return u_px, v_px
+
+    print(
+        f"{_TAG} WARNING: ignoring out-of-bounds VLM coords for {name}: "
+        f"[{u_raw}, {v_raw}] for image {image_width}x{image_height}"
+    )
+    return None
 
 
 def vlm_detect_objects(
@@ -906,6 +1044,7 @@ def vlm_detect_objects(
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     data_url = f"data:image/jpeg;base64,{b64}"
 
+    image_height, image_width = color_bgr.shape[:2]
     prompt = _VLM_PROMPT.format(object_list=", ".join(f'"{name}"' for name in object_names))
     client = OpenAI(base_url=endpoint, api_key="none", timeout=timeout_s)
     response = client.chat.completions.create(
@@ -932,9 +1071,11 @@ def vlm_detect_objects(
 
     parsed = json.loads(raw_text)
     result: dict[str, tuple[int, int]] = {}
-    for name, coords in parsed.items():
-        if isinstance(coords, (list, tuple)) and len(coords) == 2:
-            result[name] = (int(coords[0]), int(coords[1]))
+    items = parsed.items() if isinstance(parsed, dict) else []
+    for name, coords in items:
+        parsed_coords = _parse_vlm_detection_coords(str(name), coords, image_width, image_height)
+        if parsed_coords is not None:
+            result[str(name)] = parsed_coords
     return result
 
 

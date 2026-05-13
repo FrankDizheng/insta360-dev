@@ -1,0 +1,5 @@
+This is a 1280x720 robot-camera image looking down at a table.
+Find the single red/transparent bottle OUTSIDE the red box. Ignore all bottles or red areas inside the red box.
+Return the center point of the BOTTLE BODY / cylinder midpoint, not the cap tip.
+Return ONLY JSON: {"objects":[{"name":"outside_bottle_body","u":0.XX,"v":0.XX}]}
+u,v must be normalized 0-1 coordinates, top-left=(0,0). Do not return integer pixels.

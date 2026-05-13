@@ -1,0 +1,37 @@
+{
+  "timestamp_utc": "2026-05-12T12:01:03.701662+00:00",
+  "prompt": "This is a 1280x720 image from a robot camera looking down.\nFind:\n1. outer_bottle_cap - the center of the RED screw cap on the single glass bottle that is OUTSIDE the red box. Ignore bottles already inside the red box.\n2. empty_slot - the center of the empty white foam slot inside the red box where the next bottle should be inserted.\nReturn ONLY JSON: {\"objects\":[{\"name\":\"outer_bottle_cap\",\"u\":0.XX,\"v\":0.XX},{\"name\":\"empty_slot\",\"u\":0.XX,\"v\":0.XX}]}\nu,v normalized 0-1, top-left=(0,0).",
+  "raw": "```json\n[\n\t{\"name\": \"outer_bottle_cap\", \"u\": 0.496, \"v\": 0.821},\n\t{\"name\": \"empty_slot\", \"u\": 0.735, \"v\": 0.681}\n]\n```",
+  "parsed": [
+    {
+      "name": "outer_bottle_cap",
+      "u": 0.496,
+      "v": 0.821
+    },
+    {
+      "name": "empty_slot",
+      "u": 0.735,
+      "v": 0.681
+    }
+  ],
+  "parse_error": null,
+  "detections": {
+    "outer_bottle_cap": {
+      "u_raw": 0.496,
+      "v_raw": 0.821,
+      "u_px": 634,
+      "v_px": 591,
+      "mode": "normalized",
+      "in_bounds": true
+    },
+    "empty_slot": {
+      "u_raw": 0.735,
+      "v_raw": 0.681,
+      "u_px": 940,
+      "v_px": 490,
+      "mode": "normalized",
+      "in_bounds": true
+    }
+  },
+  "note": "Original pick_place_client VLM protocol rerun on current scan; no robot motion."
+}

@@ -37,6 +37,9 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [10_压入式装盒甲方简版](./10_CLIENT_BOX_PLACEMENT_BRIEF.md)
 - [11_压入式装盒商务说明](./11_CLIENT_BOX_PLACEMENT_BUSINESS_BRIEF.md)
 - [12_NERO 仿真与 DAgger 进度说明](./12_NERO_SIM_DAGGER_STATUS.md)
+- [13_NERO 仿真优化工作记录](./13_NERO_SIM_OPTIMIZATION_WORKLOG.md)
+- [13_台式机三维仿真与 VLA 验证方案](./13_DESKTOP_SIM_VLA_PLAN.md)
+- [14_NERO 真机 Planner 测试交接](./14_NERO_REAL_ROBOT_PLANNER_TEST.md)
 - [pyAgxArm NERO SDK API（本仓库副本）](./NERO_SDK_API.md)
 
 ## 关键边界

@@ -1,0 +1,6 @@
+```json
+[
+	{"name": "outer_bottle_cap", "u": 0.496, "v": 0.821},
+	{"name": "empty_slot", "u": 0.735, "v": 0.681}
+]
+```

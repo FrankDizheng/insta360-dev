@@ -1,0 +1,59 @@
+{
+  "timestamp_utc": "2026-05-13T11:58:03.961823+00:00",
+  "save_dir": "calibration\\results\\pregrasp_only_outer_red_bottle_2026-05-13_195728",
+  "status_before": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.30917,
+        0.07722,
+        0.44117
+      ],
+      "rpy_rad": [
+        1.61035,
+        -0.53828,
+        -0.29157
+      ]
+    }
+  },
+  "scan_flange_pose_m_rad": [
+    -0.24189,
+    0.054467999999999996,
+    0.593363,
+    1.5504981475942026,
+    -0.11929325437381243,
+    -0.1949532774477666
+  ],
+  "vlm_raw": "```json\n{\"objects\":[{\"name\":\"outside_bottle_body\",\"u\":0.87,\"v\":0.94}]}\n```",
+  "vlm_body_uv_norm": [
+    0.87,
+    0.94
+  ],
+  "vlm_body_uv_px": [
+    1114,
+    677
+  ],
+  "table_z_m": 0.25,
+  "bottle_diameter_m": 0.048,
+  "body_center_xyz_m": [
+    -0.3711411438268958,
+    0.39766300171741725,
+    0.274
+  ],
+  "target_xyz_for_move_above_m": [
+    -0.3711411438268958,
+    0.38266300171741724,
+    0.274
+  ],
+  "grip_center_offset_y_m": -0.015,
+  "fixed_tcp_rpy_rad_from_manual_pregrasp_v2": [
+    1.5849684003210904,
+    -1.3624389206918135,
+    0.01603957582582789
+  ],
+  "pregrasp_standoff_mm": 50,
+  "expected_pregrasp_tcp_z_m": 0.324,
+  "z_safe_mm": 420
+}

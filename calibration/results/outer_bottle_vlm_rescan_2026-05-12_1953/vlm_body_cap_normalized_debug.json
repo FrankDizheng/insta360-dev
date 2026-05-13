@@ -1,0 +1,54 @@
+{
+  "timestamp_utc": "2026-05-12T12:19:58.475862+00:00",
+  "raw": "```json\n{\"objects\":[{\"name\":\"outside_bottle_body\",\"u\":0.492,\"v\":0.751},{\"name\":\"outside_bottle_cap\",\"u\":0.493,\"v\":0.826}]}\n```",
+  "parsed": {
+    "objects": [
+      {
+        "name": "outside_bottle_body",
+        "u": 0.492,
+        "v": 0.751
+      },
+      {
+        "name": "outside_bottle_cap",
+        "u": 0.493,
+        "v": 0.826
+      }
+    ]
+  },
+  "detections": {
+    "outside_bottle_body": {
+      "u_raw": 0.492,
+      "v_raw": 0.751,
+      "u_px": 629,
+      "v_px": 540,
+      "mode": "normalized",
+      "in_bounds": true,
+      "depth_m": 0.318
+    },
+    "outside_bottle_cap": {
+      "u_raw": 0.493,
+      "v_raw": 0.826,
+      "u_px": 631,
+      "v_px": 594,
+      "mode": "normalized",
+      "in_bounds": true,
+      "depth_m": null
+    }
+  },
+  "objects_3d": {
+    "outside_bottle_body": {
+      "pixel_uv": [
+        629,
+        540
+      ],
+      "depth_m": 0.318,
+      "base_xyz_m": [
+        -0.25561699327864074,
+        0.07395565014357369,
+        0.5476913859691109
+      ]
+    }
+  },
+  "prompt": "This is a 1280x720 image from a robot camera looking down.\nFind ONLY the single glass/plastic bottle that is OUTSIDE the red box. Ignore all bottles and red regions inside the red box.\nReturn TWO points on the outside bottle:\n1. outside_bottle_body - center of the clear cylindrical BODY, around the middle of the bottle, not the cap.\n2. outside_bottle_cap - center of the red/pink cap or ring on that same outside bottle.\nReturn ONLY JSON: {\"objects\":[{\"name\":\"outside_bottle_body\",\"u\":0.XX,\"v\":0.XX},{\"name\":\"outside_bottle_cap\",\"u\":0.XX,\"v\":0.XX}]}\nu,v normalized 0-1, top-left=(0,0). Do not return integer pixels.",
+  "note": "Normalized VLM body/cap detection; no robot motion."
+}

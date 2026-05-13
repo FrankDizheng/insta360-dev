@@ -1,0 +1,78 @@
+{
+  "timestamp_utc": "2026-05-12T11:53:47.305989+00:00",
+  "status": "ok",
+  "coordinate_frame": "robot_base",
+  "table_z_m": 0.25,
+  "flange_pose_m_rad": [
+    -0.30916899999999997,
+    0.077208,
+    0.441141,
+    1.6104153008151678,
+    -0.538346807777651,
+    -0.29159215813069267
+  ],
+  "base_T_camera": [
+    [
+      0.2917274103337364,
+      0.7640101556771581,
+      -0.5754855335037422,
+      -0.25549380422450707
+    ],
+    [
+      0.9559980458573559,
+      -0.2133776501191486,
+      0.2013398008145065,
+      0.07391463105011092
+    ],
+    [
+      0.031029900109139755,
+      -0.6088993874723491,
+      -0.7926403301674959,
+      0.5479927177322944
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "intrinsics": {
+    "fx": 688.8853759765625,
+    "fy": 689.0834350585938,
+    "cx": 642.1575927734375,
+    "cy": 365.32281494140625,
+    "width": 1280,
+    "height": 720
+  },
+  "vlm_model": "qwen3-vl-flash",
+  "vlm_raw": "{\"outside_bottle_body\":[485,721],\"outside_bottle_cap\":[503,834],\"confidence\":0.9}",
+  "parse_error": null,
+  "parsed": {
+    "outside_bottle_body": [
+      485,
+      721
+    ],
+    "outside_bottle_cap": [
+      503,
+      834
+    ],
+    "confidence": 0.9
+  },
+  "detections_px": {
+    "outside_bottle_body": {
+      "u_px": 485,
+      "v_px": 721,
+      "in_bounds": false,
+      "depth_m": null
+    },
+    "outside_bottle_cap": {
+      "u_px": 503,
+      "v_px": 834,
+      "in_bounds": false,
+      "depth_m": null
+    }
+  },
+  "objects_3d": {},
+  "notes": "Fresh scan + VLM only; no robot motion. Use vlm_detected.jpg to verify target before moving."
+}

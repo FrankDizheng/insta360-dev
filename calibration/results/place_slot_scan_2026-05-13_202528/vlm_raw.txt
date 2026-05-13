@@ -1,0 +1,3 @@
+```json
+{"empty_slot":{"u":0.94,"v":0.58},"slot_axis":"left-right","existing_bottle_axis":"left-right","confidence":0.7}
+```

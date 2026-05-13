@@ -1,0 +1,4 @@
+This is a 1280x720 robot camera image. There is a red box/tray containing several bottles, and one separate clear bottle OUTSIDE the box near the lower-right area.
+Task: locate the separate outside bottle only. Ignore the red box, red walls, and all bottles inside the box.
+Return strict JSON exactly like this: {"outside_bottle_body":[u,v],"outside_bottle_cap":[u,v]}
+Coordinates must be integer pixels in the image, u=column, v=row. If cap is unclear, still return outside_bottle_body.

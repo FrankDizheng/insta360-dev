@@ -1,0 +1,6 @@
+This is a 1280x720 image from a robot camera looking down.
+Find:
+1. outer_bottle_cap - the center of the RED screw cap on the single glass bottle that is OUTSIDE the red box. Ignore bottles already inside the red box.
+2. empty_slot - the center of the empty white foam slot inside the red box where the next bottle should be inserted.
+Return ONLY JSON: {"objects":[{"name":"outer_bottle_cap","u":0.XX,"v":0.XX},{"name":"empty_slot","u":0.XX,"v":0.XX}]}
+u,v normalized 0-1, top-left=(0,0).

@@ -1,0 +1,47 @@
+{
+  "timestamp_utc": "2026-05-13T12:25:30.969251+00:00",
+  "save_dir": "calibration\\results\\place_slot_scan_2026-05-13_202528",
+  "status_before": {
+    "can0": "UP",
+    "arm_status_code": 2,
+    "arm_status": "no_ik_solution",
+    "flange": {
+      "xyz_m": [
+        -0.36236,
+        0.06288,
+        0.3495
+      ],
+      "rpy_rad": [
+        1.58104,
+        -1.28051,
+        0.02021
+      ]
+    }
+  },
+  "scan_flange_pose_m_rad": [
+    -0.362359,
+    0.062903,
+    0.349504,
+    1.5810414095041034,
+    -1.2805131656031996,
+    0.02014109956801456
+  ],
+  "intrinsics": {
+    "fx": 688.8853759765625,
+    "fy": 689.0834350585938,
+    "cx": 642.1575927734375,
+    "cy": 365.32281494140625,
+    "width": 1280,
+    "height": 720
+  },
+  "vlm_raw": "```json\n{\"empty_slot\":{\"u\":0.94,\"v\":0.58},\"slot_axis\":\"left-right\",\"existing_bottle_axis\":\"left-right\",\"confidence\":0.7}\n```",
+  "vlm_parsed": {
+    "empty_slot": {
+      "u": 0.94,
+      "v": 0.58
+    },
+    "slot_axis": "left-right",
+    "existing_bottle_axis": "left-right",
+    "confidence": 0.7
+  }
+}

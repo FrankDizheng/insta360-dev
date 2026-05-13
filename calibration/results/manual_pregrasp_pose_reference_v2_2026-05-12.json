@@ -1,0 +1,72 @@
+{
+  "timestamp_utc": "2026-05-12T14:10:49.936389+00:00",
+  "status": "ok",
+  "capture_type": "manual_pregrasp_pose_reference_v2_j7_within_limit_candidate",
+  "note": "Captured after user manually positioned a second nearby pregrasp posture. Read-only capture; no motion command was sent.",
+  "arm_status_code": 2,
+  "joint_angles_rad": [
+    -0.2315004719845279,
+    0.18186330805780915,
+    0.04153883619746504,
+    1.4202791321029058,
+    -0.017505652397503128,
+    -0.22012092526152485,
+    1.3298187169720395
+  ],
+  "joint_angles_deg": [
+    -13.264000000000001,
+    10.420000000000002,
+    2.38,
+    81.37600000000002,
+    -1.0030000000000001,
+    -12.612,
+    76.193
+  ],
+  "wrist_joints_rad": [
+    -0.017505652397503128,
+    -0.22012092526152485,
+    1.3298187169720395
+  ],
+  "wrist_joints_deg": [
+    -1.0030000000000001,
+    -12.612,
+    76.193
+  ],
+  "j7_rad": 1.3298187169720395,
+  "j7_deg": 76.193,
+  "j7_safety_limit_deg": 90.0,
+  "j7_within_safety_limit": true,
+  "flange_pose_m_rad": [
+    -0.355757,
+    0.063359,
+    0.263244,
+    1.5849684003210904,
+    -1.3624389206918135,
+    0.01603957582582789
+  ],
+  "tcp_pose_m_rad": [
+    -0.337675261190282,
+    0.05471530991014747,
+    0.2648414437926236,
+    1.5849684003210904,
+    -1.3624389206918133,
+    0.01603957582582789
+  ],
+  "recommended_grasp_constraints": {
+    "preferred_for_planner": true,
+    "lock_flange_rpy_rad": [
+      1.5849684003210904,
+      -1.3624389206918135,
+      0.01603957582582789
+    ],
+    "lock_wrist_joints_deg": [
+      -1.0030000000000001,
+      -12.612,
+      76.193
+    ],
+    "notes": "This second manually taught pregrasp posture keeps J7 inside the 90 deg safety limit, so prefer it over the earlier J7=95.535 deg sample for planner and real-machine fixed-wrist retries."
+  },
+  "gripper_width_m": null,
+  "tcp_offset_error": null,
+  "gripper_error": null
+}

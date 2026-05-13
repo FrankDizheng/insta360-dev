@@ -1,0 +1,75 @@
+{
+  "timestamp_utc": "2026-05-12T13:48:15.214233+00:00",
+  "status": "ok",
+  "capture_type": "manual_pregrasp_pose_reference",
+  "note": "Captured after user manually positioned arm at desired pregrasp posture. Read-only capture; no motion command was sent.",
+  "arm_status_code": 2,
+  "joint_angles_rad": [
+    -0.21511183030830114,
+    0.3270223419461776,
+    0.04155628948998499,
+    1.2116948331970632,
+    0.019512781037296607,
+    -0.1616174887346749,
+    1.6674003008927827
+  ],
+  "joint_angles_deg": [
+    -12.325000000000001,
+    18.737000000000002,
+    2.3810000000000002,
+    69.425,
+    1.118,
+    -9.26,
+    95.535
+  ],
+  "wrist_joints_rad": [
+    0.019512781037296607,
+    -0.1616174887346749,
+    1.6674003008927827
+  ],
+  "wrist_joints_deg": [
+    1.118,
+    -9.26,
+    95.535
+  ],
+  "j7_rad": 1.6674003008927827,
+  "j7_deg": 95.535,
+  "j7_safety_limit_deg": 90.0,
+  "flange_pose_m_rad": [
+    -0.352641,
+    0.063661,
+    0.265665,
+    -1.140712292518454,
+    -1.505416293015189,
+    2.6987851690663116
+  ],
+  "tcp_pose_m_rad": [
+    -0.3360138430927971,
+    0.054433859874264016,
+    0.2721927884238198,
+    -1.140712292518454,
+    -1.505416293015189,
+    2.6987851690663116
+  ],
+  "recommended_grasp_constraints": {
+    "lock_flange_rpy_rad": [
+      -1.140712292518454,
+      -1.505416293015189,
+      2.6987851690663116
+    ],
+    "lock_wrist_joints_deg_observed": [
+      1.118,
+      -9.26,
+      95.535
+    ],
+    "lock_wrist_joints_deg_for_planner": [
+      1.118,
+      -9.26,
+      90.0
+    ],
+    "notes": "Use the observed flange orientation as the real-machine pregrasp posture reference. Keep planner/simulation J7 clamped to the 90 deg safety limit unless explicitly overridden."
+  },
+  "gripper_width_m": null,
+  "tcp_offset_error": null,
+  "gripper_error": null
+}

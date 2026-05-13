@@ -1,0 +1,76 @@
+{
+  "timestamp_local": "2026-05-12T15:54:00+08:00",
+  "input_samples": "calibration/results/fk_sdk_manual_alignment_2026-05-12/samples.jsonl",
+  "sample_count": 7,
+  "all_arm_status_code": 0,
+  "current_dh_model": {
+    "source": "nero/kinematics.py",
+    "flange_error_clamp_false": {
+      "raw_rms_mm": 487.083,
+      "raw_max_mm": 574.317,
+      "translation_only_rms_mm": 174.291,
+      "translation_only_max_mm": 215.395,
+      "rigid_fk_to_sdk_rms_mm": 115.337,
+      "rigid_fk_to_sdk_max_mm": 190.538,
+      "mean_translation_sdk_minus_fk_m": [-0.068410, -0.342101, 0.291822]
+    },
+    "flange_error_clamp_true": {
+      "raw_rms_mm": 478.226,
+      "raw_max_mm": 564.384,
+      "translation_only_rms_mm": 168.906,
+      "translation_only_max_mm": 212.280,
+      "rigid_fk_to_sdk_rms_mm": 112.772,
+      "rigid_fk_to_sdk_max_mm": 202.246
+    },
+    "note": "Clamp changes the result only slightly. The dominant error is not caused by J7 exceeding the 90 degree planning limit."
+  },
+  "diagnostics": {
+    "translation_only_is_not_enough": "A fixed SDK-FK translation still leaves about 17 cm RMS residual.",
+    "rigid_transform_is_not_enough": "An arbitrary rigid transform from current FK points to SDK points still leaves about 11.5 cm RMS residual.",
+    "not_tcp_offset": "The data compare flange-to-flange positions, so the gripper TCP offset is not the primary source.",
+    "sample_3_4_5_j1_sweep": {
+      "description": "Samples 3, 4, and 5 keep joints 2-7 nearly fixed while J1 changes. SDK flange z stays constant, and current FK flange z also stays constant, but the horizontal radius differs strongly.",
+      "sdk_horizontal_radius_m_approx": [0.198, 0.198, 0.198],
+      "fk_horizontal_radius_m_approx": [0.503, 0.502, 0.503],
+      "pair_3_to_4": {
+        "delta_q1_deg": 22.857,
+        "delta_sdk_xyz_mm": [-13.929, -77.298, -0.011],
+        "delta_fk_xyz_mm": [-179.871, -85.481, 0.008]
+      },
+      "pair_3_to_5": {
+        "delta_q1_deg": -20.060,
+        "delta_sdk_xyz_mm": [35.683, 57.767, -0.073],
+        "delta_fk_xyz_mm": [174.741, 12.162, 0.059]
+      }
+    },
+    "best_signed_axis_permutation": {
+      "matrix": [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
+      "translation_m": [-0.068410, 0.186731, 0.011909],
+      "rms_mm": 133.681,
+      "max_mm": 209.728,
+      "note": "Axis permutation improves over raw FK but remains far from usable."
+    },
+    "coarse_joint_mapping_scan": {
+      "best_rms_mm": 122.833,
+      "best_max_mm": 167.011,
+      "best_signs_j1_to_j7": [-1, -1, -1, 1, -1, 1, -1],
+      "best_offsets_deg_j1_to_j7": [-90.0, -90.0, 0.0, 90.0, 0.0, 0.0, 0.0],
+      "note": "This coarse scan is diagnostic only. It does not produce an acceptable correction."
+    }
+  },
+  "conclusion": {
+    "root_cause_likely": "The current simulation FK uses DH zero points, joint signs, and/or base/flange frame conventions that do not match the SDK-reported flange pose.",
+    "root_cause_unlikely": [
+      "TCP offset",
+      "table height",
+      "a single fixed translation",
+      "J7 clamp alone"
+    ],
+    "safety_decision": "Do not use current FK/TCP z for real-robot table clearance or collision checks until an SDK-compatible FK chain is implemented."
+  },
+  "recommended_next_steps": [
+    "Create an SDK-compatible kinematics calibration layer: q_sdk -> q_dh plus base/flange frame transform.",
+    "Fit this layer against the manual flange samples and validate on held-out poses.",
+    "Until residuals are below about 20-30 mm, keep real-robot motion based on SDK Cartesian feedback and conservative manual waypoints rather than current offline FK."
+  ]
+}

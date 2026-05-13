@@ -384,6 +384,9 @@ def run(
     print("2/6  VLM object detection")
     print("=" * 55)
     client = OpenAI(api_key=vlm_key, base_url=vlm_base)
+    # Keep this protocol normalized (0-1). Qwen-VL has been reliable with
+    # normalized u/v, while integer-pixel prompts can produce out-of-bounds
+    # values that look like pixels but are actually scale-confused coordinates.
     prompt = (
         f"This is a {w}x{h} image from a robot camera looking down.\n"
         "Find:\n"

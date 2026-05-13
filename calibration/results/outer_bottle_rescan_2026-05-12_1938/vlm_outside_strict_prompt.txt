@@ -1,0 +1,5 @@
+Image size is exactly 1280 columns by 720 rows. Valid pixel u is 0..1279, valid pixel v is 0..719.
+Find the single clear bottle OUTSIDE the red box/tray. It is not inside the box. It should be visible inside this image; do not return coordinates outside the image.
+Ignore the red tray walls and all bottles inside the tray. The outside bottle is a clear cylindrical bottle lying on the table, with a small red/pink cap/ring.
+Return strict JSON only: {"outside_bottle_body":[u,v],"outside_bottle_cap":[u,v],"confidence":0.0}
+All returned u,v MUST be inside [0,1279] and [0,719]. If the outside bottle is not visible, return {"confidence":0.0}.

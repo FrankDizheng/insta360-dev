@@ -1,0 +1,21 @@
+{
+  "slot_uv_px": [
+    1203,
+    418
+  ],
+  "slot_depth_mm": 209.0,
+  "slot_surface_xyz_m": [
+    -0.36340890308094104,
+    0.2504858573521643,
+    0.2597424295825292
+  ],
+  "place_xyz_m": [
+    -0.36340890308094104,
+    0.2504858573521643,
+    0.28974242958252916
+  ],
+  "place_z_mm": 289.74242958252916,
+  "lift_z_mm": 420,
+  "release_width_m": 0.06,
+  "notes": "Place target is slot depth point plus 30mm vertical allowance for horizontal bottle/foam groove. Keep current grasp orientation to match left-right slot axis."
+}

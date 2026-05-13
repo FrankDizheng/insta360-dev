@@ -1,0 +1,1 @@
+{"outside_bottle_body":[485,721],"outside_bottle_cap":[503,834],"confidence":0.9}

@@ -1,0 +1,27 @@
+{
+  "timestamp_utc": "2026-05-12T11:48:26.854873+00:00",
+  "status": "ok",
+  "raw": "```json\n{\"outside_bottle_body\":[350, 821], \"outside_bottle_cap\": [352, 914]}\n```",
+  "parse_error": null,
+  "parsed": {
+    "outside_bottle_body": [
+      350,
+      821
+    ],
+    "outside_bottle_cap": [
+      352,
+      914
+    ]
+  },
+  "detections_px": {
+    "outside_bottle_body": {
+      "u_px": 350,
+      "v_px": 821
+    },
+    "outside_bottle_cap": {
+      "u_px": 352,
+      "v_px": 914
+    }
+  },
+  "note": "VLM only on saved color image, no robot motion."
+}

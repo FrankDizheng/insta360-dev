@@ -1,0 +1,6 @@
+This is a 1280x720 robot wrist-camera image while the gripper is holding a small transparent bottle.
+Task: find the red box and the EMPTY white foam slot inside it where the held bottle should be placed.
+Also observe the orientation of bottles already placed in the red box: report whether their long axes are left-right or front-back in the image.
+Ignore the bottle currently held by the gripper if visible.
+Return ONLY JSON: {"empty_slot":{"u":0.XX,"v":0.XX},"slot_axis":"left-right|front-back|diagonal|unknown","existing_bottle_axis":"left-right|front-back|diagonal|unknown","confidence":0.0}
+u,v must be normalized 0-1 coordinates, top-left=(0,0). Do not return integer pixels.

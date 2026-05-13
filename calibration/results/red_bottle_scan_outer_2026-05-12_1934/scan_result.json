@@ -1,0 +1,268 @@
+{
+  "timestamp_utc": "2026-05-12T11:35:15.964547+00:00",
+  "status": "ok",
+  "coordinate_frame": "robot_base",
+  "table_z_m": 0.25,
+  "flange_pose_m_rad": [
+    -0.309162,
+    0.077275,
+    0.44115699999999997,
+    1.6103105810600482,
+    -0.5382769946075712,
+    -0.291784144348412
+  ],
+  "base_T_camera": [
+    [
+      0.2919651392219986,
+      0.7639012466750577,
+      -0.5755095498749038,
+      -0.2554777070513767
+    ],
+    [
+      0.9559283927154565,
+      -0.21360554578349755,
+      0.20142884464816144,
+      0.07397549918181368
+    ],
+    [
+      0.030939712400364215,
+      -0.6089561230098881,
+      -0.7926002688736873,
+      0.5480039582528051
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "intrinsics": {
+    "fx": 688.8853759765625,
+    "fy": 689.0834350585938,
+    "cx": 642.1575927734375,
+    "cy": 365.32281494140625,
+    "width": 1280,
+    "height": 720
+  },
+  "selection_rule": "reject right-edge/box red regions; choose best isolated red component",
+  "selected_outer_red_bottle": {
+    "label": 3,
+    "bbox_xywh": [
+      640,
+      459,
+      90,
+      254
+    ],
+    "area_px": 3095,
+    "centroid_uv": [
+      691.0681744749596,
+      596.6600969305331
+    ],
+    "median_depth_m": 0.31200000643730164,
+    "valid_depth_count": 3085,
+    "base_median_xyz_m": [
+      -0.34601971377465707,
+      0.13543667170770743,
+      0.23687073699187794
+    ],
+    "aspect": 0.3543307086614173,
+    "extent": 0.13538932633420822,
+    "touches_right_edge": false,
+    "border_touch": false,
+    "outside_candidate": true,
+    "score": 60.371350604501785
+  },
+  "candidates_ranked": [
+    {
+      "label": 3,
+      "bbox_xywh": [
+        640,
+        459,
+        90,
+        254
+      ],
+      "area_px": 3095,
+      "centroid_uv": [
+        691.0681744749596,
+        596.6600969305331
+      ],
+      "median_depth_m": 0.31200000643730164,
+      "valid_depth_count": 3085,
+      "base_median_xyz_m": [
+        -0.34601971377465707,
+        0.13543667170770743,
+        0.23687073699187794
+      ],
+      "aspect": 0.3543307086614173,
+      "extent": 0.13538932633420822,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 60.371350604501785
+    },
+    {
+      "label": 8,
+      "bbox_xywh": [
+        446,
+        637,
+        57,
+        20
+      ],
+      "area_px": 699,
+      "centroid_uv": [
+        469.86409155937054,
+        646.8383404864092
+      ],
+      "median_depth_m": 0.25600001215934753,
+      "valid_depth_count": 699,
+      "base_median_xyz_m": [
+        -0.3418428003157003,
+        0.04042488995055342,
+        0.2793254712870591
+      ],
+      "aspect": 2.85,
+      "extent": 0.6131578947368421,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 47.89913444859404
+    },
+    {
+      "label": 9,
+      "bbox_xywh": [
+        394,
+        645,
+        34,
+        39
+      ],
+      "area_px": 594,
+      "centroid_uv": [
+        413.81481481481484,
+        667.442760942761
+      ],
+      "median_depth_m": 0.25699999928474426,
+      "valid_depth_count": 580,
+      "base_median_xyz_m": [
+        -0.34239397866693466,
+        0.020625304704822264,
+        0.27265034236897967
+      ],
+      "aspect": 0.8717948717948718,
+      "extent": 0.4479638009049774,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 40.05084824558209
+    },
+    {
+      "label": 4,
+      "bbox_xywh": [
+        715,
+        559,
+        18,
+        38
+      ],
+      "area_px": 390,
+      "centroid_uv": [
+        724.0974358974358,
+        577.0820512820513
+      ],
+      "median_depth_m": 0.24799999594688416,
+      "valid_depth_count": 378,
+      "base_median_xyz_m": [
+        -0.33124838880837343,
+        0.13607044574042648,
+        0.30559911544752516
+      ],
+      "aspect": 0.47368421052631576,
+      "extent": 0.5701754385964912,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 39.70455800900869
+    },
+    {
+      "label": 2,
+      "bbox_xywh": [
+        944,
+        457,
+        17,
+        10
+      ],
+      "area_px": 125,
+      "centroid_uv": [
+        951.32,
+        461.008
+      ],
+      "median_depth_m": 0.2879999876022339,
+      "valid_depth_count": 125,
+      "base_median_xyz_m": [
+        -0.35288620968292694,
+        0.24687168157328757,
+        0.2994178270861241
+      ],
+      "aspect": 1.7,
+      "extent": 0.7352941176470589,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 36.91563400514601
+    },
+    {
+      "label": 6,
+      "bbox_xywh": [
+        1116,
+        588,
+        20,
+        23
+      ],
+      "area_px": 252,
+      "centroid_uv": [
+        1123.5,
+        600.0079365079365
+      ],
+      "median_depth_m": 0.2529999911785126,
+      "valid_depth_count": 252,
+      "base_median_xyz_m": [
+        -0.28319237312431544,
+        0.27540928043790047,
+        0.30058049223365224
+      ],
+      "aspect": 0.8695652173913043,
+      "extent": 0.5478260869565217,
+      "touches_right_edge": false,
+      "border_touch": false,
+      "outside_candidate": true,
+      "score": 35.048420909865804
+    },
+    {
+      "label": 1,
+      "bbox_xywh": [
+        648,
+        244,
+        632,
+        457
+      ],
+      "area_px": 103451,
+      "centroid_uv": [
+        1031.0635373268503,
+        441.1409072894414
+      ],
+      "median_depth_m": 0.3160000145435333,
+      "valid_depth_count": 102238,
+      "base_median_xyz_m": [
+        -0.3698391279912383,
+        0.2897012064185224,
+        0.28765990046903533
+      ],
+      "aspect": 1.3829321663019694,
+      "extent": 0.3581800681383819,
+      "touches_right_edge": true,
+      "border_touch": true,
+      "outside_candidate": false,
+      "score": 74.17429765281537
+    }
+  ],
+  "notes": "Green box in red_candidates_overlay.jpg is selected target. Components touching right edge are treated as box/inside false positives."
+}
