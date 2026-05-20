@@ -974,6 +974,8 @@ Rules:
 - Each key is the object name, each value is [u, v] floats normalized 0-1.
 - top-left=(0,0), bottom-right=(1,1).
 - Use the CENTER of the object.
+- For "empty_slot", prefer returning {"corners":{"top_left":[u,v],"top_right":[u,v],"bottom_right":[u,v],"bottom_left":[u,v]}} so the caller can derive the slot centerline.
+- For a bottle body, prefer returning {"keypoints":{"cap_center":[u,v],"body_tail_center":[u,v],"body_left_mid":[u,v],"body_right_mid":[u,v],"body_center":[u,v]}} so the caller can derive and validate the bottle centerline.
 - If an object is not visible, omit its key.
 - Do NOT return integer pixel coordinates.
 
@@ -993,6 +995,67 @@ def _parse_vlm_detection_coords(
     Asking for integer pixels has caused the model to emit invalid out-of-bounds
     values, so normalized coordinates are the canonical protocol here.
     """
+    if isinstance(coords, dict) and isinstance(coords.get("corners"), dict):
+        corners = coords["corners"]
+        aliases = {
+            "top_left": ("top_left", "tl", "upper_left"),
+            "top_right": ("top_right", "tr", "upper_right"),
+            "bottom_right": ("bottom_right", "br", "lower_right"),
+            "bottom_left": ("bottom_left", "bl", "lower_left"),
+        }
+        pixels = []
+        for names in aliases.values():
+            value = next((corners[key] for key in names if key in corners), None)
+            parsed = _parse_vlm_detection_coords(name, value, image_width, image_height)
+            if parsed is None:
+                return None
+            pixels.append(parsed)
+        u_px = int(round(sum(px[0] for px in pixels) / len(pixels)))
+        v_px = int(round(sum(px[1] for px in pixels) / len(pixels)))
+        return u_px, v_px
+
+    if isinstance(coords, dict) and isinstance(coords.get("keypoints"), dict):
+        keypoints = coords["keypoints"]
+        values = [
+            keypoints.get("cap_center"),
+            keypoints.get("body_tail_center"),
+            keypoints.get("body_left_mid"),
+            keypoints.get("body_right_mid"),
+            keypoints.get("body_center"),
+        ]
+        pixels = []
+        for value in values:
+            parsed = _parse_vlm_detection_coords(name, value, image_width, image_height)
+            if parsed is None:
+                return None
+            pixels.append(parsed)
+        u_px = int(round(sum(px[0] for px in pixels) / len(pixels)))
+        v_px = int(round(sum(px[1] for px in pixels) / len(pixels)))
+        return u_px, v_px
+
+    if (
+        isinstance(coords, dict)
+        and isinstance(coords.get("endpoints"), dict)
+        and isinstance(coords.get("width_points"), dict)
+    ):
+        endpoints = coords["endpoints"]
+        width_points = coords["width_points"]
+        values = [
+            endpoints.get("cap_center"),
+            endpoints.get("bottom_center"),
+            width_points.get("left_mid"),
+            width_points.get("right_mid"),
+        ]
+        pixels = []
+        for value in values:
+            parsed = _parse_vlm_detection_coords(name, value, image_width, image_height)
+            if parsed is None:
+                return None
+            pixels.append(parsed)
+        u_px = int(round(sum(px[0] for px in pixels) / len(pixels)))
+        v_px = int(round(sum(px[1] for px in pixels) / len(pixels)))
+        return u_px, v_px
+
     if not isinstance(coords, (list, tuple)) or len(coords) != 2:
         return None
 
@@ -1113,6 +1176,8 @@ def main() -> None:
                         help="Offset pick target along current flange local +Y before move_above (mm)")
     parser.add_argument("--pick-local-z-offset-mm", type=float, default=0.0,
                         help="Offset pick target along current flange local +Z before move_above (mm)")
+    parser.add_argument("--pick-xy-align-above-grasp-mm", type=float, default=30.0,
+                        help="Perform XY alignment at least this far above grasp Z (mm)")
     parser.add_argument("--speed", type=int, default=10,
                         help="Robot speed percent (1-100)")
     parser.add_argument("--flush-frames", type=int, default=2,
@@ -1374,7 +1439,7 @@ def main() -> None:
                     client.post("/move_above", {
                         "target_xyz": approach_xyz,
                         "standoff_mm": args.standoff_mm,
-                        "min_hover_z_mm": args.grasp_z_mm + args.standoff_mm,
+                        "min_hover_z_mm": args.grasp_z_mm + args.pick_xy_align_above_grasp_mm,
                         "z_safe_mm": args.z_safe_mm,
                         "speed_pct": args.speed,
                         "tol_mm": 15.0,

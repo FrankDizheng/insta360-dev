@@ -40,6 +40,7 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [13_NERO 仿真优化工作记录](./13_NERO_SIM_OPTIMIZATION_WORKLOG.md)
 - [13_台式机三维仿真与 VLA 验证方案](./13_DESKTOP_SIM_VLA_PLAN.md)
 - [14_NERO 真机 Planner 测试交接](./14_NERO_REAL_ROBOT_PLANNER_TEST.md)
+- [15_NERO 透明瓶抓取协作交接](./15_TRANSPARENT_BOTTLE_GRASP_HANDOFF.md)
 - [pyAgxArm NERO SDK API（本仓库副本）](./NERO_SDK_API.md)
 
 ## 关键边界
