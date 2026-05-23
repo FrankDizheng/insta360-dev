@@ -1,0 +1,36 @@
+{
+  "dataset_dir": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330",
+  "description": "Six dual-camera captures for transparent red-cap bottle localization. move_01..move_03 change bottle pose; move_04..move_06 keep the bottle fixed while the arm/wrist camera pose changes.",
+  "groups": [
+    {
+      "name": "move_01",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_01",
+      "condition": "bottle_moved_arm_fixed"
+    },
+    {
+      "name": "move_02",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_02",
+      "condition": "bottle_moved_arm_fixed"
+    },
+    {
+      "name": "move_03",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_03",
+      "condition": "bottle_moved_arm_fixed"
+    },
+    {
+      "name": "move_04",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_04",
+      "condition": "bottle_fixed_arm_moved"
+    },
+    {
+      "name": "move_05",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_05",
+      "condition": "bottle_fixed_arm_moved"
+    },
+    {
+      "name": "move_06",
+      "path": "data\\cases\\dual_camera_bottle_moves_2026-05-23_170330\\move_06",
+      "condition": "bottle_fixed_arm_moved"
+    }
+  ]
+}

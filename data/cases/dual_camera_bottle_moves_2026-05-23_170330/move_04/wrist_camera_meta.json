@@ -1,0 +1,22 @@
+{
+  "depth_scale": 1.0,
+  "intrinsics": {
+    "fx": 688.8853759765625,
+    "fy": 689.0834350585938,
+    "cx": 642.1575927734375,
+    "cy": 365.32281494140625,
+    "width": 1280,
+    "height": 720
+  },
+  "flange_pose": [
+    -0.24004199999999998,
+    0.045100999999999995,
+    0.480801,
+    1.508540432376259,
+    -0.9642245985567873,
+    -0.15627678122357228
+  ],
+  "camera_name": "wrist_camera",
+  "captured_at_local": "2026-05-23T17:06:58",
+  "note": "Bottle fixed; arm/wrist camera pose may vary manually."
+}

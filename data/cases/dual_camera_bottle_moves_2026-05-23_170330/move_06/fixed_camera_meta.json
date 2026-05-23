@@ -1,0 +1,12 @@
+{
+  "device": "/dev/video4",
+  "shape": [
+    720,
+    1280,
+    3
+  ],
+  "out": "/tmp/fixed_camera_move_06_20260523_171207.jpg",
+  "camera_name": "fixed_camera",
+  "captured_at_local": "2026-05-23T17:12:11",
+  "note": "Bottle fixed; fixed camera should remain approximately constant."
+}
