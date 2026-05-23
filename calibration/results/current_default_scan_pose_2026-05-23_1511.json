@@ -1,0 +1,26 @@
+{
+  "timestamp_local": "2026-05-23 15:11",
+  "description": "Default initial/scan pose saved from the current physical arm posture.",
+  "joint_angles_deg": [
+    7.817,
+    -51.497,
+    -10.701,
+    101.596,
+    -9.619,
+    5.546,
+    66.204
+  ],
+  "flange_pose_m_rad": [
+    -0.122899,
+    0.072909,
+    0.420056,
+    1.4848912210117358,
+    -0.4781853084614064,
+    -0.12283627275536092
+  ],
+  "capture_reference": "calibration/results/current_camera_view_2026-05-23_150838/scan_color.jpg",
+  "applied_to": [
+    "calibration/scripts/pick_place_client.py:SCAN_POSE_DEG"
+  ],
+  "note": "This replaces the previous default pose whose J7 target exceeded the practical 90 degree SDK limit."
+}

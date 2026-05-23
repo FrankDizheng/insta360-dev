@@ -73,7 +73,7 @@ PICK_LOCALIZATION_MODE = os.getenv("PICK_PLACE_PICK_LOCALIZATION_MODE", "red-cap
 
 SCAN_POSE_DEG = _env_float_csv(
     "PICK_PLACE_SCAN_POSE_DEG",
-    [7.277, -36.26, -14.662, 71.399, -8.695, 0.318, 97.698],
+    [7.817, -51.497, -10.701, 101.596, -9.619, 5.546, 66.204],
     expected_len=7,
 )
 
