@@ -1,0 +1,27 @@
+﻿{
+    "session_dir":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+    "point_name":  "p01",
+    "captured_at_local":  "2026-05-23T21:54:41",
+    "tcp_offset_mode":  "zero_offset_flange_as_tcp",
+    "contact_description":  "left gripper lower-left corner touching ChArUco board point",
+    "robot_status_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p01\\robot_status.json",
+    "robot_status_reads_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p01\\robot_status_reads.json",
+    "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p01\\top_camera.jpg",
+    "base_xyz_m":  [
+                       -0.26076,
+                       0.01376,
+                       0.24807
+                   ],
+    "base_xy_m":  [
+                      -0.26076,
+                      0.01376
+                  ],
+    "flange_rpy_rad":  [
+                           1.54373,
+                           -1.04786,
+                           -0.14671
+                       ],
+    "arm_status_code":  0,
+    "arm_status":  "normal",
+    "note":  "p01 re-recorded because the current robot state was confirmed by the user as P01. No robot motion command was sent."
+}

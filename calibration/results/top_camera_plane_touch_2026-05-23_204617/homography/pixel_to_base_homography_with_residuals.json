@@ -1,0 +1,630 @@
+{
+  "session_dir": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+  "assumptions": [
+    "TCP offset is zero: SDK flange xyz is treated as touch/TCP xyz.",
+    "p01-p04 are the four visual outer corners.",
+    "p05 is a cell center and is kept as secondary validation, not recommended for fitting.",
+    "p06 and p07 are explicit grid intersections and are included in recommended fit."
+  ],
+  "board": {
+    "type": "charuco",
+    "squares_x": 12,
+    "squares_y": 9,
+    "square_length_m": 0.015,
+    "dictionary": "DICT_5X5_100"
+  },
+  "user_grid_convention": {
+    "origin": "visual_upper_left",
+    "x_axis": "right",
+    "y_axis": "down"
+  },
+  "homography_pixel_to_base_xy_m_primary_4_corner": [
+    [
+      -4.056703642030263e-05,
+      -0.0009765994541877296,
+      -0.1284041613396691
+    ],
+    [
+      -0.000679138704313442,
+      0.0002160409830970559,
+      0.6891311752033163
+    ],
+    [
+      4.475983447094578e-06,
+      0.0005879332060874573,
+      1.0
+    ]
+  ],
+  "homography_board_xy_to_base_xy_m_primary_4_corner": [
+    [
+      -0.9888049179716453,
+      0.0129515004171578,
+      -0.2607600000000001
+    ],
+    [
+      0.018257711251792878,
+      0.9712570264452528,
+      0.013759999999999967
+    ],
+    [
+      -0.010932856712688354,
+      0.01638169311263449,
+      1.0
+    ]
+  ],
+  "homography_pixel_to_base_xy_m_corner_plus_intersections_soft_fit": [
+    [
+      -3.848789683123334e-05,
+      -0.0009808569948767738,
+      -0.12827132202075117
+    ],
+    [
+      -0.0006756851117760606,
+      0.00021742941606627236,
+      0.6853146709357949
+    ],
+    [
+      -4.6974776201504915e-06,
+      0.0006071149595730462,
+      1.0
+    ]
+  ],
+  "homography_pixel_to_base_xy_m_all7_soft_fit": [
+    [
+      0.0001340658326680996,
+      -0.0005000879568025946,
+      -0.2242114596291295
+    ],
+    [
+      -0.0004097029041779352,
+      0.00010803304772156341,
+      0.4191182282196123
+    ],
+    [
+      -0.00044580651758264485,
+      0.00021325381469152835,
+      1.0
+    ]
+  ],
+  "recommended_homography_pixel_to_base_xy_m": [
+    [
+      -3.848789683123334e-05,
+      -0.0009808569948767738,
+      -0.12827132202075117
+    ],
+    [
+      -0.0006756851117760606,
+      0.00021742941606627236,
+      0.6853146709357949
+    ],
+    [
+      -4.6974776201504915e-06,
+      0.0006071149595730462,
+      1.0
+    ]
+  ],
+  "recommended_homography_source": "corner_plus_intersections_soft_fit_p01_p02_p03_p04_p06_p07",
+  "point_correspondences": {
+    "p01": {
+      "desc": "visual upper-right outer corner",
+      "board_xy_m": [
+        0.0,
+        0.0
+      ],
+      "base_xy_m": [
+        -0.26076,
+        0.01376
+      ],
+      "base_xyz_m": [
+        -0.26076,
+        0.01376,
+        0.24807
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p01\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        1028.513586109636,
+        111.54335508093709
+      ]
+    },
+    "p02": {
+      "desc": "visual lower-right outer corner",
+      "board_xy_m": [
+        0.18,
+        0.0
+      ],
+      "base_xy_m": [
+        -0.43961,
+        0.01708
+      ],
+      "base_xyz_m": [
+        -0.43961,
+        0.01708,
+        0.24777
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p02\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        1102.904425749232,
+        374.07071346420753
+      ]
+    },
+    "p03": {
+      "desc": "visual lower-left outer corner",
+      "board_xy_m": [
+        0.18,
+        0.135
+      ],
+      "base_xy_m": [
+        -0.43689,
+        0.14813
+      ],
+      "base_xyz_m": [
+        -0.43689,
+        0.14813,
+        0.2464
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p03\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        868.288271190652,
+        382.0281360981728
+      ]
+    },
+    "p04": {
+      "desc": "visual upper-left outer corner",
+      "board_xy_m": [
+        0.0,
+        0.135
+      ],
+      "base_xy_m": [
+        -0.25844,
+        0.14456
+      ],
+      "base_xyz_m": [
+        -0.25844,
+        0.14456,
+        0.24793
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p04\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        823.900419419948,
+        118.31108156583834
+      ]
+    },
+    "p05": {
+      "desc": "center of user grid cell (3,4)",
+      "user_cell_xy": [
+        3,
+        4
+      ],
+      "user_center_xy": [
+        3.5,
+        4.5
+      ],
+      "board_xy_m": [
+        0.0675,
+        0.08249999999999999
+      ],
+      "base_xy_m": [
+        -0.30978,
+        0.10855
+      ],
+      "base_xyz_m": [
+        -0.30978,
+        0.10855,
+        0.24592
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p05\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        922.760813124226,
+        206.0988609758403
+      ]
+    },
+    "p06": {
+      "desc": "user grid intersection (4,6)",
+      "user_grid_xy": [
+        4,
+        6
+      ],
+      "user_grid_point_type": "intersection",
+      "board_xy_m": [
+        0.09,
+        0.075
+      ],
+      "base_xy_m": [
+        -0.34862,
+        0.08746
+      ],
+      "base_xyz_m": [
+        -0.34862,
+        0.08746,
+        0.24745
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p06\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        941.7642220734348,
+        237.8944404007611
+      ]
+    },
+    "p07": {
+      "desc": "user grid intersection (7,8)",
+      "user_grid_xy": [
+        7,
+        8
+      ],
+      "user_grid_point_type": "intersection",
+      "board_xy_m": [
+        0.12,
+        0.03
+      ],
+      "base_xy_m": [
+        -0.38058,
+        0.04651
+      ],
+      "base_xyz_m": [
+        -0.38058,
+        0.04651,
+        0.24698
+      ],
+      "top_camera_image": "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p07\\top_camera.jpg",
+      "pixel_uv_inferred": [
+        1026.1140654223423,
+        280.0669568564188
+      ]
+    }
+  },
+  "primary_4corner_fit_residuals": [
+    {
+      "point_name": "p01",
+      "pred_base_xy_m": [
+        -0.26076000000000005,
+        0.013759999999995663
+      ],
+      "measured_base_xy_m": [
+        -0.26076,
+        0.01376
+      ],
+      "error_xy_mm": [
+        -5.551115123125783e-14,
+        -4.336808689942018e-12
+      ],
+      "error_norm_mm": 4.337163946759175e-12
+    },
+    {
+      "point_name": "p02",
+      "pred_base_xy_m": [
+        -0.4396100000000029,
+        0.01707999999998034
+      ],
+      "measured_base_xy_m": [
+        -0.43961,
+        0.01708
+      ],
+      "error_xy_mm": [
+        -2.886579864025407e-12,
+        -1.966135587672113e-11
+      ],
+      "error_norm_mm": 1.9872122640082347e-11
+    },
+    {
+      "point_name": "p03",
+      "pred_base_xy_m": [
+        -0.43688999999998157,
+        0.14812999999998036
+      ],
+      "measured_base_xy_m": [
+        -0.43689,
+        0.14813
+      ],
+      "error_xy_mm": [
+        1.84297022087776e-11,
+        -1.965094753586527e-11
+      ],
+      "error_norm_mm": 2.694092913322685e-11
+    },
+    {
+      "point_name": "p04",
+      "pred_base_xy_m": [
+        -0.2584400000000209,
+        0.14455999999998564
+      ],
+      "measured_base_xy_m": [
+        -0.25844,
+        0.14456
+      ],
+      "error_xy_mm": [
+        -2.0872192862952943e-11,
+        -1.4349632593280148e-11
+      ],
+      "error_norm_mm": 2.532904243098092e-11
+    }
+  ],
+  "primary_4corner_fit_stats": {
+    "rms_mm": 2.11014590867286e-11,
+    "mean_mm": 1.9119814537762324e-11,
+    "max_mm": 2.694092913322685e-11
+  },
+  "validation_against_primary_4corner": [
+    {
+      "point_name": "p05",
+      "pred_base_xy_m": [
+        -0.3262356804592575,
+        0.09506277709999951
+      ],
+      "measured_base_xy_m": [
+        -0.30978,
+        0.10855
+      ],
+      "error_xy_mm": [
+        -16.455680459257493,
+        -13.487222900000484
+      ],
+      "error_norm_mm": 21.276620994215374
+    },
+    {
+      "point_name": "p06",
+      "pred_base_xy_m": [
+        -0.3486957647354867,
+        0.08822588477946725
+      ],
+      "measured_base_xy_m": [
+        -0.34862,
+        0.08746
+      ],
+      "error_xy_mm": [
+        -0.07576473548670526,
+        0.7658847794672491
+      ],
+      "error_norm_mm": 0.769623148406392
+    },
+    {
+      "point_name": "p07",
+      "pred_base_xy_m": [
+        -0.3793392900014181,
+        0.04512566138827438
+      ],
+      "measured_base_xy_m": [
+        -0.38058,
+        0.04651
+      ],
+      "error_xy_mm": [
+        1.2407099985818903,
+        -1.3843386117256204
+      ],
+      "error_norm_mm": 1.858966027794885
+    }
+  ],
+  "validation_against_primary_4corner_stats": {
+    "rms_mm": 12.338863743129469,
+    "mean_mm": 7.968403390138884,
+    "max_mm": 21.276620994215374
+  },
+  "recommended_fit_points": [
+    "p01",
+    "p02",
+    "p03",
+    "p04",
+    "p06",
+    "p07"
+  ],
+  "recommended_fit_residuals": [
+    {
+      "point_name": "p01",
+      "pred_base_xy_m": [
+        -0.2608597232234081,
+        0.013751361459259962
+      ],
+      "measured_base_xy_m": [
+        -0.26076,
+        0.01376
+      ],
+      "error_xy_mm": [
+        -0.09972322340812134,
+        -0.008638540740037864
+      ],
+      "error_norm_mm": 0.1000966816284305
+    },
+    {
+      "point_name": "p02",
+      "pred_base_xy_m": [
+        -0.43998651672430455,
+        0.017540014008574634
+      ],
+      "measured_base_xy_m": [
+        -0.43961,
+        0.01708
+      ],
+      "error_xy_mm": [
+        -0.3765167243045542,
+        0.46001400857463226
+      ],
+      "error_norm_mm": 0.5944558282714818
+    },
+    {
+      "point_name": "p03",
+      "pred_base_xy_m": [
+        -0.4368629381139024,
+        0.14797283527765245
+      ],
+      "measured_base_xy_m": [
+        -0.43689,
+        0.14813
+      ],
+      "error_xy_mm": [
+        0.02706188609757909,
+        -0.15716472234755807
+      ],
+      "error_norm_mm": 0.15947757093003193
+    },
+    {
+      "point_name": "p04",
+      "pred_base_xy_m": [
+        -0.2584630887989662,
+        0.1445203914578748
+      ],
+      "measured_base_xy_m": [
+        -0.25844,
+        0.14456
+      ],
+      "error_xy_mm": [
+        -0.02308879896617544,
+        -0.03960854212520237
+      ],
+      "error_norm_mm": 0.04584680192755428
+    },
+    {
+      "point_name": "p06",
+      "pred_base_xy_m": [
+        -0.3489968442976219,
+        0.08833630114302927
+      ],
+      "measured_base_xy_m": [
+        -0.34862,
+        0.08746
+      ],
+      "error_xy_mm": [
+        -0.3768442976219144,
+        0.8763011430292789
+      ],
+      "error_norm_mm": 0.9538948149164952
+    },
+    {
+      "point_name": "p07",
+      "pred_base_xy_m": [
+        -0.379733186280889,
+        0.04538181675161021
+      ],
+      "measured_base_xy_m": [
+        -0.38058,
+        0.04651
+      ],
+      "error_xy_mm": [
+        0.8468137191109948,
+        -1.1281832483897927
+      ],
+      "error_norm_mm": 1.4106349339293776
+    }
+  ],
+  "recommended_fit_stats": {
+    "rms_mm": 0.7405784155039671,
+    "mean_mm": 0.5440677719338952,
+    "max_mm": 1.4106349339293776
+  },
+  "all7_fit_residuals": [
+    {
+      "point_name": "p01",
+      "pred_base_xy_m": [
+        -0.25139256068840304,
+        0.017307854934851433
+      ],
+      "measured_base_xy_m": [
+        -0.26076,
+        0.01376
+      ],
+      "error_xy_mm": [
+        9.367439311596948,
+        3.5478549348514337
+      ],
+      "error_norm_mm": 10.016795590167625
+    },
+    {
+      "point_name": "p02",
+      "pred_base_xy_m": [
+        -0.4479210782074514,
+        0.013037257678240904
+      ],
+      "measured_base_xy_m": [
+        -0.43961,
+        0.01708
+      ],
+      "error_xy_mm": [
+        -8.311078207451416,
+        -4.042742321759097
+      ],
+      "error_norm_mm": 9.242174335648295
+    },
+    {
+      "point_name": "p03",
+      "pred_base_xy_m": [
+        -0.4303856289928669,
+        0.15070942048589903
+      ],
+      "measured_base_xy_m": [
+        -0.43689,
+        0.14813
+      ],
+      "error_xy_mm": [
+        6.504371007133081,
+        2.579420485899014
+      ],
+      "error_norm_mm": 6.997160298400267
+    },
+    {
+      "point_name": "p04",
+      "pred_base_xy_m": [
+        -0.26282504416081354,
+        0.14339720668956588
+      ],
+      "measured_base_xy_m": [
+        -0.25844,
+        0.14456
+      ],
+      "error_xy_mm": [
+        -4.385044160813534,
+        -1.1627933104341182
+      ],
+      "error_norm_mm": 4.536595703286244
+    },
+    {
+      "point_name": "p05",
+      "pred_base_xy_m": [
+        -0.3218071657999658,
+        0.10010761183091409
+      ],
+      "measured_base_xy_m": [
+        -0.30978,
+        0.10855
+      ],
+      "error_xy_mm": [
+        -12.027165799965822,
+        -8.442388169085907
+      ],
+      "error_norm_mm": 14.694442322775956
+    },
+    {
+      "point_name": "p06",
+      "pred_base_xy_m": [
+        -0.3438351198739737,
+        0.09347970032884957
+      ],
+      "measured_base_xy_m": [
+        -0.34862,
+        0.08746
+      ],
+      "error_xy_mm": [
+        4.784880126026292,
+        6.019700328849575
+      ],
+      "error_norm_mm": 7.689724954092511
+    },
+    {
+      "point_name": "p07",
+      "pred_base_xy_m": [
+        -0.37640941287298885,
+        0.048105443328668236
+      ],
+      "measured_base_xy_m": [
+        -0.38058,
+        0.04651
+      ],
+      "error_xy_mm": [
+        4.170587127011127,
+        1.5954433286682335
+      ],
+      "error_norm_mm": 4.465337209996901
+    }
+  ],
+  "all7_fit_stats": {
+    "rms_mm": 8.866410729813525,
+    "mean_mm": 8.234604344909686,
+    "max_mm": 14.694442322775956
+  }
+}

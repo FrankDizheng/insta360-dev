@@ -1,0 +1,27 @@
+﻿{
+    "session_dir":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+    "point_name":  "p03",
+    "captured_at_local":  "2026-05-23T20:58:23",
+    "tcp_offset_mode":  "zero_offset_flange_as_tcp",
+    "contact_description":  "left gripper lower-left corner touching ChArUco board point",
+    "robot_status_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p03\\robot_status.json",
+    "robot_status_reads_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p03\\robot_status_reads.json",
+    "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p03\\top_camera.jpg",
+    "base_xyz_m":  [
+                       -0.43689,
+                       0.14813,
+                       0.2464
+                   ],
+    "base_xy_m":  [
+                      -0.43689,
+                      0.14813
+                  ],
+    "flange_rpy_rad":  [
+                           2.29472,
+                           -1.08996,
+                           -0.92148
+                       ],
+    "arm_status_code":  0,
+    "arm_status":  "normal",
+    "note":  "No robot motion command was sent; status was read twice and the second read was recorded."
+}

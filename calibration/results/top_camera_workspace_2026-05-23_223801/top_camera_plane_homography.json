@@ -1,0 +1,56 @@
+﻿{
+    "camera_name":  "top_camera",
+    "calibration_type":  "support_plane_homography",
+    "created_at_local":  "2026-05-23T22:38:01",
+    "source_result":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\homography\\pixel_to_base_homography_with_residuals.json",
+    "recommended_homography_source":  "corner_plus_intersections_soft_fit_p01_p02_p03_p04_p06_p07",
+    "homography_pixel_to_base_xy_m":  [
+                                          [
+                                              -3.848789683123334E-05,
+                                              -0.0009808569948767738,
+                                              -0.12827132202075117
+                                          ],
+                                          [
+                                              -0.0006756851117760606,
+                                              0.00021742941606627236,
+                                              0.6853146709357949
+                                          ],
+                                          [
+                                              -4.6974776201504915E-06,
+                                              0.0006071149595730462,
+                                              1.0
+                                          ]
+                                      ],
+    "fit_points":  [
+                       "p01",
+                       "p02",
+                       "p03",
+                       "p04",
+                       "p06",
+                       "p07"
+                   ],
+    "fit_stats":  {
+                      "rms_mm":  0.7405784155039671,
+                      "mean_mm":  0.5440677719338952,
+                      "max_mm":  1.4106349339293776
+                  },
+    "board":  {
+                  "type":  "charuco",
+                  "squares_x":  12,
+                  "squares_y":  9,
+                  "square_length_m":  0.015,
+                  "dictionary":  "DICT_5X5_100"
+              },
+    "user_grid_convention":  {
+                                 "origin":  "visual_upper_left",
+                                 "x_axis":  "right",
+                                 "y_axis":  "down"
+                             },
+    "notes":  [
+                  "Top camera must remain fixed after this calibration.",
+                  "Support plane / black mat / workspace origin must not move relative to robot base.",
+                  "Use this homography for top-camera pixel UV to robot base XY on the support plane.",
+                  "Transparent-bottle grasp Z remains a separate fixed prior, currently 260 mm.",
+                  "p05 was excluded from the recommended fit because it was a cell-center touch; recommended fit uses outer corners and explicit grid intersections."
+              ]
+}

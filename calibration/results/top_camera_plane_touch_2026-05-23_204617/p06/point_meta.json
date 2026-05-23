@@ -1,0 +1,32 @@
+﻿{
+    "session_dir":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+    "point_name":  "p06",
+    "captured_at_local":  "2026-05-23T22:27:55",
+    "tcp_offset_mode":  "zero_offset_flange_as_tcp",
+    "contact_description":  "left gripper lower-left corner touching user-grid intersection (4,6) from visual upper-left origin",
+    "user_grid_xy":  [
+                         4,
+                         6
+                     ],
+    "user_grid_point_type":  "intersection",
+    "robot_status_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p06\\robot_status.json",
+    "robot_status_reads_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p06\\robot_status_reads.json",
+    "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p06\\top_camera.jpg",
+    "base_xyz_m":  [
+                       -0.34862,
+                       0.08746,
+                       0.24745
+                   ],
+    "base_xy_m":  [
+                      -0.34862,
+                      0.08746
+                  ],
+    "flange_rpy_rad":  [
+                           2.03943,
+                           -1.01559,
+                           -0.75927
+                       ],
+    "arm_status_code":  0,
+    "arm_status":  "normal",
+    "note":  "p06 recorded at user-grid intersection (4,6), not cell center. No robot motion command was sent."
+}

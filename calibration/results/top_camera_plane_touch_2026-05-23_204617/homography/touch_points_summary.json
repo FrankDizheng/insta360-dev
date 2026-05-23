@@ -1,0 +1,87 @@
+﻿{
+    "session_dir":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+    "tcp_offset_mode":  "zero_offset_flange_as_tcp",
+    "points":  [
+                   {
+                       "point_name":  "p01",
+                       "base_xy_m":  [
+                                         -0.26076,
+                                         0.01376
+                                     ],
+                       "base_xyz_m":  [
+                                          -0.26076,
+                                          0.01376,
+                                          0.24807
+                                      ],
+                       "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p01\\top_camera.jpg",
+                       "charuco_id":  null,
+                       "usable_for_base_homography":  true,
+                       "note":  "needs matching ChArUco corner id or confirmed contact pixel"
+                   },
+                   {
+                       "point_name":  "p02",
+                       "base_xy_m":  [
+                                         -0.43961,
+                                         0.01708
+                                     ],
+                       "base_xyz_m":  [
+                                          -0.43961,
+                                          0.01708,
+                                          0.24777
+                                      ],
+                       "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p02\\top_camera.jpg",
+                       "charuco_id":  null,
+                       "usable_for_base_homography":  true,
+                       "note":  "needs matching ChArUco corner id or confirmed contact pixel"
+                   },
+                   {
+                       "point_name":  "p03",
+                       "base_xy_m":  [
+                                         -0.43689,
+                                         0.14813
+                                     ],
+                       "base_xyz_m":  [
+                                          -0.43689,
+                                          0.14813,
+                                          0.2464
+                                      ],
+                       "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p03\\top_camera.jpg",
+                       "charuco_id":  null,
+                       "usable_for_base_homography":  true,
+                       "note":  "needs matching ChArUco corner id or confirmed contact pixel"
+                   },
+                   {
+                       "point_name":  "p04",
+                       "base_xy_m":  [
+                                         -0.25844,
+                                         0.14456
+                                     ],
+                       "base_xyz_m":  [
+                                          -0.25844,
+                                          0.14456,
+                                          0.24793
+                                      ],
+                       "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p04\\top_camera.jpg",
+                       "charuco_id":  null,
+                       "usable_for_base_homography":  true,
+                       "note":  "needs matching ChArUco corner id or confirmed contact pixel"
+                   },
+                   {
+                       "point_name":  "p05",
+                       "base_xy_m":  [
+                                         -0.3196,
+                                         0.0998
+                                     ],
+                       "base_xyz_m":  [
+                                          -0.3196,
+                                          0.0998,
+                                          0.24644
+                                      ],
+                       "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p05\\top_camera.jpg",
+                       "charuco_id":  null,
+                       "usable_for_base_homography":  true,
+                       "note":  "needs matching ChArUco corner id or confirmed contact pixel"
+                   }
+               ],
+    "next_step":  "Fill charuco_id for each touch point (or provide contact pixel_uv) to compute top_camera_pixel_to_base_xy_m homography with residuals."
+}

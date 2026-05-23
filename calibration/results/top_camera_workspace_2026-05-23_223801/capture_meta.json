@@ -1,0 +1,8 @@
+﻿{
+    "camera_name":  "top_camera",
+    "captured_at_local":  "2026-05-23T22:38:02",
+    "image":  "calibration\\results\\top_camera_workspace_2026-05-23_223801\\top_camera_workspace.jpg",
+    "calibration_file":  "calibration\\results\\top_camera_workspace_2026-05-23_223801\\top_camera_plane_homography.json",
+    "current_calibration_file":  "calibration\\results\\top_camera_plane_homography_current.json",
+    "note":  "Workspace image captured after fixing top-camera support-plane homography. No robot motion command was sent."
+}

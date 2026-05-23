@@ -1,0 +1,26 @@
+﻿{
+    "session_dir":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617",
+    "point_name":  "p02",
+    "captured_at_local":  "2026-05-23T20:55:25",
+    "tcp_offset_mode":  "zero_offset_flange_as_tcp",
+    "contact_description":  "left gripper lower-left corner touching ChArUco board point",
+    "robot_status_file":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p02\\robot_status.json",
+    "top_camera_image":  "calibration\\results\\top_camera_plane_touch_2026-05-23_204617\\p02\\top_camera.jpg",
+    "base_xyz_m":  [
+                       -0.43961,
+                       0.01708,
+                       0.24777
+                   ],
+    "base_xy_m":  [
+                      -0.43961,
+                      0.01708
+                  ],
+    "flange_rpy_rad":  [
+                           2.03167,
+                           -0.99671,
+                           -0.37188
+                       ],
+    "arm_status_code":  0,
+    "arm_status":  "normal",
+    "note":  "p02 was re-read after the first read appeared stale. No robot motion command was sent."
+}
