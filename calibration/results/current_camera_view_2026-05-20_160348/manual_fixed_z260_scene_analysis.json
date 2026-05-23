@@ -1,0 +1,115 @@
+{
+  "source_image": "calibration\\results\\current_camera_view_2026-05-20_160348\\scan_color.jpg",
+  "note": "VLM returned invalid negative normalized coordinates for this frame; these are visual/manual keypoints from the saved image plus fixed-Z projection.",
+  "fixed_z_m": 0.26,
+  "bottle": {
+    "cap_px": [
+      604,
+      188
+    ],
+    "body_tail_px": [
+      594,
+      114
+    ],
+    "body_center_px": [
+      599,
+      145
+    ],
+    "axis_uv": [
+      -0.13391789600139503,
+      -0.9909924304103233
+    ],
+    "axis_angle_image_deg": -97.69605172201658,
+    "axis_angle_base_xy_deg": 174.46423922890787,
+    "grasp_from_cap_mm": 45.0,
+    "grasp_offset_px": 58.0,
+    "grasp_px": [
+      596,
+      131
+    ],
+    "cap_base_xyz_m": [
+      -0.3365761351222207,
+      0.12152175791669209,
+      0.26
+    ],
+    "grasp_base_xyz_before_y_offset_m": [
+      -0.38141785180255666,
+      0.12586777297901833,
+      0.26
+    ],
+    "grip_center_offset_y_mm": -15.0,
+    "contact_base_xyz_m": [
+      -0.38141785180255666,
+      0.11086777297901833,
+      0.26
+    ],
+    "sdk_flange_target_xyz_m": [
+      -0.38141785180255666,
+      0.11086777297901833,
+      0.26
+    ],
+    "pregrasp_z_m": 0.34
+  },
+  "slot": {
+    "corners_px": {
+      "top_left": [
+        744,
+        76
+      ],
+      "top_right": [
+        815,
+        68
+      ],
+      "bottom_right": [
+        827,
+        134
+      ],
+      "bottom_left": [
+        753,
+        143
+      ]
+    },
+    "geometry": {
+      "center_px": [
+        785,
+        105
+      ],
+      "depth_mm": 461.0,
+      "center_base_xyz_m": [
+        -0.38653751245093143,
+        0.25416985793502145,
+        0.2391465531163916
+      ],
+      "axis_uv": [
+        0.9931972800046016,
+        -0.11644381903502227
+      ],
+      "axis_base": [
+        0.1194753519152585,
+        0.9927666778664866,
+        -0.011830621398078518
+      ],
+      "length_px": 72.9965752621313,
+      "width_px": 67.3238442158497,
+      "corners_px": {
+        "top_left": [
+          744,
+          76
+        ],
+        "top_right": [
+          815,
+          68
+        ],
+        "bottom_right": [
+          827,
+          134
+        ],
+        "bottom_left": [
+          753,
+          143
+        ]
+      }
+    },
+    "error": null
+  }
+}
