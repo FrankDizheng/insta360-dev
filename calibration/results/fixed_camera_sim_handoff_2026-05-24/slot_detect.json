@@ -1,0 +1,87 @@
+{
+  "source_image": "D:/DevProjects/insta360-dev/data/cases/dual_camera_bottle_moves_2026-05-23_170330/move_01/fixed_camera.jpg",
+  "image_shape_hw": [
+    720,
+    1280
+  ],
+  "homography": "D:/DevProjects/insta360-dev/calibration/results/top_camera_plane_homography_current.json",
+  "detection_mode": "fixed_camera_cv_white_foam_mask_centroid",
+  "slot_pixels": {
+    "center_px": [
+      708,
+      605
+    ],
+    "center_mode": "mask_centroid",
+    "rect_center_px": [
+      717,
+      598
+    ],
+    "corners_px": {
+      "top_left": [
+        693,
+        566
+      ],
+      "top_right": [
+        754,
+        584
+      ],
+      "bottom_right": [
+        740,
+        630
+      ],
+      "bottom_left": [
+        680,
+        612
+      ]
+    },
+    "axis_uv": [
+      0.958477856666115,
+      0.2851669656196706
+    ],
+    "length_px": 63.120915709454025,
+    "width_px": 47.940066750057824,
+    "red_box_bbox_px": [
+      256,
+      366,
+      609,
+      354
+    ],
+    "red_box_area_px": 153850.0,
+    "slot_component_area_px": 1456
+  },
+  "slot_base": {
+    "center_base_xyz_m": [
+      -0.5490842451560198,
+      0.24815226182712027,
+      0.248
+    ],
+    "corners_base_xyz_m": {
+      "top_left": [
+        -0.5297847497158353,
+        0.25375791963509214,
+        0.248
+      ],
+      "top_right": [
+        -0.5404178586563124,
+        0.22414797062109496,
+        0.248
+      ],
+      "bottom_right": [
+        -0.5617757347826977,
+        0.23371047864330238,
+        0.248
+      ],
+      "bottom_left": [
+        -0.5515562672531669,
+        0.2622961640758171,
+        0.248
+      ]
+    },
+    "axis_base_xy": [
+      -0.3362177784059236,
+      -0.9417842669549037
+    ],
+    "support_z_m": 0.248,
+    "homography_note": "XY from support-plane homography; Z is a fixed prior, not measured."
+  }
+}

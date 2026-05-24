@@ -42,6 +42,7 @@ NERO 的控制侧并不要求本地一定有大 GPU。
 - [14_NERO 真机 Planner 测试交接](./14_NERO_REAL_ROBOT_PLANNER_TEST.md)
 - [15_NERO 透明瓶抓取协作交接](./15_TRANSPARENT_BOTTLE_GRASP_HANDOFF.md)
 - [16_NERO 顶部相机平面定位交接](./16_TOP_CAMERA_PLANE_LOCALIZATION_HANDOFF.md)
+- [17_固定机位凹槽仿真→真机交接](./17_FIXED_CAMERA_SIM_TO_REAL_HANDOFF.md)
 - [pyAgxArm NERO SDK API（本仓库副本）](./NERO_SDK_API.md)
 
 ## 关键边界

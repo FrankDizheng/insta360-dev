@@ -1,0 +1,593 @@
+{
+  "schema": "nero.fixed_camera_sim_handoff.v1",
+  "created_at_local": "2026-05-24_220336",
+  "status": "ready_for_real_robot_standoff_test",
+  "source": {
+    "slot_image": "data/cases/dual_camera_bottle_moves_2026-05-23_170330/move_01/fixed_camera.jpg",
+    "homography": "calibration/results/top_camera_plane_homography_current.json",
+    "pick_exchange": "calibration/results/nero_sim_current_to_bottle_exchange_2026-05-11.json",
+    "slot_detect_json": "calibration/results/fixed_camera_sim_handoff_2026-05-24/slot_detect.json"
+  },
+  "coordinate_frame": "robot_base",
+  "perception": {
+    "slot_detection_mode": "fixed_camera_cv_white_foam_mask_centroid",
+    "slot_center_px": [
+      708,
+      605
+    ],
+    "slot_center_mode": "mask_centroid"
+  },
+  "targets_m": {
+    "slot_surface_xyz_m": [
+      -0.5490842451560198,
+      0.24815226182712027,
+      0.248
+    ],
+    "place_xyz_m": [
+      -0.5490842451560198,
+      0.24815226182712027,
+      0.278
+    ],
+    "place_standoff_xyz_m": [
+      -0.5490842451560198,
+      0.24815226182712027,
+      0.42
+    ],
+    "pick_standoff_xyz_m": [
+      -0.36340544375089745,
+      0.08940718996825216,
+      0.42
+    ],
+    "pick_grasp_xyz_m": [
+      -0.36340544375089745,
+      0.08940718996825216,
+      0.275
+    ]
+  },
+  "safety": {
+    "table_z_m": 0.25,
+    "table_clearance_min_m": 0.03,
+    "safe_standoff_z_m": 0.42,
+    "first_real_robot_motion": "standoff_only",
+    "do_not_lower_until": [
+      "SDK flange pose matches sim FK flange at scan pose",
+      "TCP/tool tip offset confirmed",
+      "fixed_camera vs wrist_camera place XY gap reviewed"
+    ]
+  },
+  "initial_states": {
+    "home_q_deg": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "scan_q_deg": [
+      7.817,
+      -51.497,
+      -10.701,
+      101.596,
+      -9.619,
+      5.546,
+      66.204
+    ],
+    "scan_fk_flange_mm": [
+      -266.63490088620955,
+      52.78743674991288,
+      299.71616360657663
+    ]
+  },
+  "consistency_check": {
+    "wrist_camera_slot_xyz_m": [
+      -0.38942663085572354,
+      0.2789906363966242,
+      0.2595467642065272
+    ],
+    "fixed_camera_slot_xyz_m": [
+      -0.5490842451560198,
+      0.24815226182712027,
+      0.248
+    ],
+    "place_xy_gap_mm": 162.60860724497707,
+    "note": "Large XY gap expected until homography and wrist-depth frames are unified."
+  },
+  "planner_validation": {
+    "all_plan_ok": true,
+    "joint_plans": [
+      {
+        "name": "pick_standoff_from_home",
+        "xyz_m": [
+          -0.36340544375089745,
+          0.08940718996825216,
+          0.42
+        ],
+        "start_mode": "home",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.708464956791462,
+        "path_waypoints": 22
+      },
+      {
+        "name": "place_standoff_from_home",
+        "xyz_m": [
+          -0.5490842451560198,
+          0.24815226182712027,
+          0.42
+        ],
+        "start_mode": "home",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.9677539758401301,
+        "path_waypoints": 22
+      },
+      {
+        "name": "pick_grasp_from_home",
+        "xyz_m": [
+          -0.36340544375089745,
+          0.08940718996825216,
+          0.275
+        ],
+        "start_mode": "home",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.7529167375456511,
+        "path_waypoints": 26
+      },
+      {
+        "name": "place_from_home",
+        "xyz_m": [
+          -0.5490842451560198,
+          0.24815226182712027,
+          0.278
+        ],
+        "start_mode": "home",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.774662711963395,
+        "path_waypoints": 14
+      },
+      {
+        "name": "pick_standoff_from_scan",
+        "xyz_m": [
+          -0.36340544375089745,
+          0.08940718996825216,
+          0.42
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.8437938557243467,
+        "path_waypoints": 7
+      },
+      {
+        "name": "place_standoff_from_scan",
+        "xyz_m": [
+          -0.5490842451560198,
+          0.24815226182712027,
+          0.42
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.8328977412871763,
+        "path_waypoints": 14
+      },
+      {
+        "name": "pick_grasp_from_scan",
+        "xyz_m": [
+          -0.36340544375089745,
+          0.08940718996825216,
+          0.275
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.7570886137624253,
+        "path_waypoints": 5
+      },
+      {
+        "name": "place_from_scan",
+        "xyz_m": [
+          -0.5490842451560198,
+          0.24815226182712027,
+          0.278
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.774662711963395,
+        "path_waypoints": 14
+      }
+    ],
+    "tcp_plans": [
+      {
+        "name": "tcp_pick_from_scan",
+        "xyz_m": [
+          -0.36340544375089745,
+          0.08940718996825216,
+          0.275
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.6775114135232945,
+        "path_waypoints": 21
+      },
+      {
+        "name": "tcp_place_from_scan",
+        "xyz_m": [
+          -0.5490842451560198,
+          0.24815226182712027,
+          0.278
+        ],
+        "start_mode": "scan_pose",
+        "plan_ok": true,
+        "reason": "ok",
+        "position_error_mm": 1.7336106778784843,
+        "path_waypoints": 29
+      }
+    ]
+  },
+  "sim_execution": {
+    "from_home": {
+      "ok": true,
+      "steps": [
+        {
+          "step": "move_above_pick",
+          "ok": true,
+          "joint_angles_deg": [
+            1.636921504734138,
+            4.481295364214919,
+            -5.406278566964521,
+            68.16238949751276,
+            -13.577752236001235,
+            35.0330104846905,
+            73.05095737105502
+          ],
+          "flange_xyz_m": [
+            -0.3623144525376646,
+            0.08913779745616926,
+            0.39325085940774196
+          ]
+        },
+        {
+          "step": "lower_pick",
+          "ok": true,
+          "joint_angles_deg": [
+            0.15305262260025468,
+            11.515074851454298,
+            -6.564865095781229,
+            77.6720401987921,
+            -12.65336758294064,
+            23.192368808419335,
+            76.60512424066025
+          ],
+          "flange_xyz_m": [
+            -0.3632774197126611,
+            0.08925318578528799,
+            0.2867355379136861
+          ]
+        },
+        {
+          "step": "grasp",
+          "ok": true,
+          "joint_angles_deg": [
+            0.15305262260025468,
+            11.515074851454298,
+            -6.564865095781229,
+            77.6720401987921,
+            -12.65336758294064,
+            23.192368808419335,
+            76.60512424066025
+          ],
+          "flange_xyz_m": [
+            -0.3632774197126611,
+            0.08925318578528799,
+            0.2867355379136861
+          ]
+        },
+        {
+          "step": "lift",
+          "ok": true,
+          "joint_angles_deg": [
+            0.15305262260025468,
+            -3.484925148545701,
+            -6.564865095781229,
+            77.6720401987921,
+            -12.65336758294064,
+            23.192368808419335,
+            76.60512424066025
+          ],
+          "flange_xyz_m": [
+            -0.3124118014975487,
+            0.08938906202000589,
+            0.3756285693274808
+          ]
+        },
+        {
+          "step": "move_above_place",
+          "ok": true,
+          "joint_angles_deg": [
+            -10.59777530855977,
+            39.741535301620495,
+            -12.76095731941174,
+            35.78444641827074,
+            -18.722010493542655,
+            18.784401764072758,
+            41.43049482942678
+          ],
+          "flange_xyz_m": [
+            -0.5475757283276512,
+            0.247287390450727,
+            0.39808894009542983
+          ]
+        },
+        {
+          "step": "lower_place",
+          "ok": true,
+          "joint_angles_deg": [
+            -3.1622323180566974,
+            43.76330826399954,
+            -19.982330938575778,
+            54.0765384777549,
+            3.4405494812424333,
+            39.16979851283858,
+            17.523516564665847
+          ],
+          "flange_xyz_m": [
+            -0.5476076300055482,
+            0.24743661810703554,
+            0.2885101790543811
+          ]
+        },
+        {
+          "step": "release",
+          "ok": true,
+          "joint_angles_deg": [
+            -3.1622323180566974,
+            43.76330826399954,
+            -19.982330938575778,
+            54.0765384777549,
+            3.4405494812424333,
+            39.16979851283858,
+            17.523516564665847
+          ],
+          "flange_xyz_m": [
+            -0.5476076300055482,
+            0.24743661810703554,
+            0.2885101790543811
+          ]
+        },
+        {
+          "step": "home",
+          "ok": true,
+          "joint_angles_deg": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "flange_xyz_m": [
+            5.190238810734559e-07,
+            5.190238810473535e-07,
+            0.8913099999980936
+          ]
+        }
+      ],
+      "reason": "ok"
+    },
+    "from_scan_pose": {
+      "ok": true,
+      "steps": [
+        {
+          "step": "move_to_scan_pose",
+          "ok": true,
+          "joint_angles_deg": [
+            7.817,
+            -14.99997778074544,
+            -10.701,
+            101.596,
+            -9.619,
+            5.546000000000001,
+            66.204
+          ],
+          "flange_xyz_m": [
+            -0.26663490088620956,
+            0.052787436749912875,
+            0.2997161636065766
+          ]
+        },
+        {
+          "step": "move_above_pick",
+          "ok": true,
+          "joint_angles_deg": [
+            -6.711062898951169,
+            -10.395583960116651,
+            -5.239460590998741,
+            97.46566319968139,
+            -0.4137745353009919,
+            2.4377332776089595,
+            23.869407210187457
+          ],
+          "flange_xyz_m": [
+            -0.36523508277964967,
+            0.08845822096567083,
+            0.39438946698952926
+          ]
+        },
+        {
+          "step": "lower_pick",
+          "ok": true,
+          "joint_angles_deg": [
+            -6.941583541919327,
+            -4.91974237592374,
+            -5.583497216076041,
+            106.07252930803438,
+            -0.32559816991113355,
+            2.566516520073311,
+            27.29370471061295
+          ],
+          "flange_xyz_m": [
+            -0.3632378469107122,
+            0.08935703701479018,
+            0.28672778929321524
+          ]
+        },
+        {
+          "step": "grasp",
+          "ok": true,
+          "joint_angles_deg": [
+            -6.941583541919327,
+            -4.91974237592374,
+            -5.583497216076041,
+            106.07252930803438,
+            -0.32559816991113355,
+            2.566516520073311,
+            27.29370471061295
+          ],
+          "flange_xyz_m": [
+            -0.3632378469107122,
+            0.08935703701479018,
+            0.28672778929321524
+          ]
+        },
+        {
+          "step": "lift",
+          "ok": true,
+          "joint_angles_deg": [
+            -6.941583541919327,
+            -14.99997778074544,
+            -5.583497216076041,
+            106.07252930803438,
+            -0.32559816991113355,
+            2.566516520073311,
+            27.29370471061295
+          ],
+          "flange_xyz_m": [
+            -0.33170660378473216,
+            0.08551811574344703,
+            0.3494326126351579
+          ]
+        },
+        {
+          "step": "move_above_place",
+          "ok": true,
+          "joint_angles_deg": [
+            -15.187388805623579,
+            32.059092854833914,
+            -13.17121424353321,
+            65.42702725322593,
+            -3.21482421565446,
+            4.120173354949037,
+            -15.586712590763938
+          ],
+          "flange_xyz_m": [
+            -0.5476196426247223,
+            0.24720020845436336,
+            0.3970194250340249
+          ]
+        },
+        {
+          "step": "lower_place",
+          "ok": true,
+          "joint_angles_deg": [
+            -17.088711211963144,
+            34.82619040636121,
+            -14.225858410074297,
+            74.11625963623204,
+            -3.6377360007422683,
+            -8.123885162184353,
+            -13.057666828386813
+          ],
+          "flange_xyz_m": [
+            -0.5491549401406137,
+            0.24761203978091467,
+            0.28959438112732816
+          ]
+        },
+        {
+          "step": "release",
+          "ok": true,
+          "joint_angles_deg": [
+            -17.088711211963144,
+            34.82619040636121,
+            -14.225858410074297,
+            74.11625963623204,
+            -3.6377360007422683,
+            -8.123885162184353,
+            -13.057666828386813
+          ],
+          "flange_xyz_m": [
+            -0.5491549401406137,
+            0.24761203978091467,
+            0.28959438112732816
+          ]
+        },
+        {
+          "step": "home",
+          "ok": true,
+          "joint_angles_deg": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "flange_xyz_m": [
+            5.190238810734559e-07,
+            5.190238810473535e-07,
+            0.8913099999980936
+          ]
+        }
+      ],
+      "reason": "ok"
+    }
+  },
+  "real_robot_commands": {
+    "pi_scan_pose_deg": [
+      7.817,
+      -51.497,
+      -10.701,
+      101.596,
+      -9.619,
+      5.546,
+      66.204
+    ],
+    "standoff_pick": {
+      "xyz_m": [
+        -0.36340544375089745,
+        0.08940718996825216,
+        0.42
+      ],
+      "note": "Use pi_pick_place_bridge or robot_server; confirm before lower."
+    },
+    "standoff_place": {
+      "xyz_m": [
+        -0.5490842451560198,
+        0.24815226182712027,
+        0.42
+      ],
+      "note": "Fixed-camera place target; confirm XY vs wrist prior."
+    },
+    "grasp_after_checks": {
+      "pick_xyz_m": [
+        -0.36340544375089745,
+        0.08940718996825216,
+        0.275
+      ],
+      "place_xyz_m": [
+        -0.5490842451560198,
+        0.24815226182712027,
+        0.278
+      ]
+    }
+  }
+}

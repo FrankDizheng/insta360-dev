@@ -1,0 +1,82 @@
+{
+  "source_image": "data/cases/dual_camera_bottle_moves_2026-05-23_170330/move_02/fixed_camera.jpg",
+  "image_shape_hw": [
+    720,
+    1280
+  ],
+  "homography": "calibration/results/top_camera_plane_homography_current.json",
+  "detection_mode": "fixed_camera_cv_white_foam_in_red_box",
+  "slot_pixels": {
+    "center_px": [
+      717,
+      599
+    ],
+    "corners_px": {
+      "top_left": [
+        694,
+        566
+      ],
+      "top_right": [
+        755,
+        586
+      ],
+      "bottom_right": [
+        740,
+        632
+      ],
+      "bottom_left": [
+        679,
+        611
+      ]
+    },
+    "axis_uv": [
+      0.9479034644759929,
+      0.31855772166816154
+    ],
+    "length_px": 64.35254462723289,
+    "width_px": 47.90876746483883,
+    "red_box_bbox_px": [
+      242,
+      366,
+      622,
+      354
+    ],
+    "red_box_area_px": 155128.5,
+    "slot_component_area_px": 1429
+  },
+  "slot_base": {
+    "center_base_xyz_m": [
+      -0.5464999551867067,
+      0.24339497355706005,
+      0.248
+    ],
+    "corners_base_xyz_m": {
+      "top_left": [
+        -0.5298153208566475,
+        0.25325470441064546,
+        0.248
+      ],
+      "top_right": [
+        -0.5414136627381031,
+        0.2237693787700315,
+        0.248
+      ],
+      "bottom_right": [
+        -0.5627028251028681,
+        0.23381993983029817,
+        0.248
+      ],
+      "bottom_left": [
+        -0.5510539284415145,
+        0.2627467318273839,
+        0.248
+      ]
+    },
+    "axis_base_xy": [
+      -0.36983068333475516,
+      -0.9290991689072529
+    ],
+    "support_z_m": 0.248,
+    "homography_note": "XY from support-plane homography; Z is a fixed prior, not measured."
+  }
+}
