@@ -18,6 +18,7 @@ import json
 import math
 import os
 import re
+import sys
 import time
 from collections import deque
 from pathlib import Path
@@ -97,6 +98,7 @@ BOTTLE_MODEL_AXIS_SEARCH_DEG = _env_float("PICK_PLACE_BOTTLE_MODEL_AXIS_SEARCH_D
 BOTTLE_MODEL_LENGTH_PX = _env_float("PICK_PLACE_BOTTLE_MODEL_LENGTH_PX", 165.0)
 BOTTLE_MODEL_WIDTH_PX = _env_float("PICK_PLACE_BOTTLE_MODEL_WIDTH_PX", 70.0)
 PLACE_CLEARANCE_MM = _env_float("PICK_PLACE_PLACE_CLEARANCE_MM", -3.0)
+PLACE_STANDOFF_MODE = os.getenv("PICK_PLACE_PLACE_STANDOFF_MODE", "p5").strip().lower()
 GRIPPER_OPEN_M = 0.06
 GRIPPER_FORCE = 1.0
 GRIP_CENTER_OFFSET_Y_MM = _env_float("PICK_PLACE_GRIP_CENTER_OFFSET_Y_MM", -15.0)
@@ -936,6 +938,7 @@ def run(
     pick_grasp_z_mode: str = PICK_GRASP_Z_MODE,
     successful_grasp_z_prior_mm: float = SUCCESSFUL_GRASP_Z_PRIOR_MM,
     pick_xy_mode: str = PICK_XY_MODE,
+    place_standoff_mode: str = PLACE_STANDOFF_MODE,
 ):
     try:
         from openai import OpenAI
@@ -1475,13 +1478,48 @@ def run(
     print("\n" + "=" * 55)
     print("5/6  Place into empty slot")
     print("=" * 55)
-    res = api(
-        "post",
-        "/place",
-        pi_url=pi_url,
-        json={"xyz_m": slot_3d.tolist(), "place_z_mm": place_z * 1000, "z_safe_mm": LIFT_Z_MM},
-        timeout=60,
-    )
+    if place_standoff_mode == "p5":
+        script_dir = Path(__file__).resolve().parent
+        if str(script_dir) not in sys.path:
+            sys.path.insert(0, str(script_dir))
+        from gripper_align_place import plan_p5_place_standoff_from_q
+
+        status = api("get", "/status", pi_url=pi_url, timeout=12)
+        p5_plan = plan_p5_place_standoff_from_q(status["joint_angles_deg"], fixed_rpy=True)
+        if not p5_plan.get("ok"):
+            raise RuntimeError(f"P5 place standoff planning failed: {p5_plan.get('reason')}")
+        print(
+            f"  P5 standoff target flange="
+            f"{[round(v, 4) for v in p5_plan['goal_flange_xyz_m']]}"
+        )
+        api(
+            "post",
+            "/move_j",
+            pi_url=pi_url,
+            json={"angles_deg": p5_plan["goal_q_deg"]},
+            timeout=120,
+        )
+        timer.lap("move_j -> P5 place standoff")
+        res = api(
+            "post",
+            "/place",
+            pi_url=pi_url,
+            json={
+                "xyz_m": slot_3d.tolist(),
+                "place_z_mm": place_z * 1000,
+                "z_safe_mm": LIFT_Z_MM,
+                "from_current_xy": True,
+            },
+            timeout=60,
+        )
+    else:
+        res = api(
+            "post",
+            "/place",
+            pi_url=pi_url,
+            json={"xyz_m": slot_3d.tolist(), "place_z_mm": place_z * 1000, "z_safe_mm": LIFT_Z_MM},
+            timeout=60,
+        )
     print(f"  Place: z={res.get('place_z_mm', 0):.0f}mm  status={res.get('status')}")
     timer.lap("place")
 
@@ -1514,6 +1552,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--bottle-height-mm", type=float, default=BOTTLE_HEIGHT_MM)
     parser.add_argument("--place-clearance-mm", type=float, default=PLACE_CLEARANCE_MM)
+    parser.add_argument(
+        "--place-standoff-mode",
+        choices=["p5", "vision"],
+        default=PLACE_STANDOFF_MODE if PLACE_STANDOFF_MODE in ("p5", "vision") else "p5",
+        help="Place standoff target: P5 calibration (default) or legacy vision slot center",
+    )
     parser.add_argument("--grip-center-offset-y-mm", type=float, default=GRIP_CENTER_OFFSET_Y_MM)
     parser.add_argument(
         "--pick-contact-local-offset-mm",
@@ -1582,4 +1626,5 @@ if __name__ == "__main__":
         pick_grasp_z_mode=args.pick_grasp_z_mode,
         successful_grasp_z_prior_mm=args.successful_grasp_z_prior_mm,
         pick_xy_mode=args.pick_xy_mode,
+        place_standoff_mode=args.place_standoff_mode,
     )

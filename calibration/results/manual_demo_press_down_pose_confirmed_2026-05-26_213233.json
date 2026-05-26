@@ -1,0 +1,77 @@
+{
+  "schema": "manual_demo_press_down_pose_confirmed.v1",
+  "captured_at": "2026-05-26T21:32:33",
+  "label": "manual_bottle_press_down_pose_confirmed",
+  "meaning": "This current actual robot pose is the confirmed press-down pose used to push the bottle downward into the groove/slot.",
+  "robot_status": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.37555,
+        0.228,
+        0.30502
+      ],
+      "rpy_rad": [
+        1.76692,
+        -1.16122,
+        -0.29875
+      ]
+    },
+    "joint_angles_deg": [
+      -8.572,
+      23.282,
+      -41.544,
+      62.695,
+      16.98,
+      -38.618,
+      75.058
+    ]
+  },
+  "joint_angles_deg": [
+    -8.572,
+    23.282,
+    -41.544,
+    62.695,
+    16.98,
+    -38.618,
+    75.058
+  ],
+  "flange_xyz_m_sdk": [
+    -0.37555,
+    0.228,
+    0.30502
+  ],
+  "flange_rpy_rad_sdk": [
+    1.76692,
+    -1.16122,
+    -0.29875
+  ],
+  "execution_note": {
+    "purpose": "press bottle downward into recessed groove/slot after placement",
+    "expected_resistance": true,
+    "safety_guidance": "Use slow arm speed and conservative replay. This pose involves contact/resistance.",
+    "why_re_recorded": "User requested to save the current position as the press-down pose."
+  },
+  "scan_reference": {
+    "scan_q_deg": [
+      7.817,
+      -51.497,
+      -10.701,
+      101.596,
+      -9.619,
+      5.546,
+      66.204
+    ],
+    "scan_flange_xyz_m_approx": [
+      -0.1229,
+      0.07291,
+      0.42006
+    ],
+    "max_q_delta_from_scan_deg": 74.779,
+    "max_xyz_delta_from_scan_m": 0.25265,
+    "looks_like_scan_pose": false
+  },
+  "note": "Confirmed current actual press-down pose; latest alias updated per user instruction."
+}

@@ -1,0 +1,444 @@
+{
+  "schema": "manual_demo_pick_place_sequence_latest.v1",
+  "timestamp": "2026-05-26T21:29:19",
+  "policy": "scan_default_pregrasp_grasp_scan_default_latest_place_release_latest_post_lift; arm_motion_move_j_only",
+  "scan_q_deg": [
+    7.817,
+    -51.497,
+    -10.701,
+    101.596,
+    -9.619,
+    5.546,
+    66.204
+  ],
+  "pregrasp_pose": "calibration/results/manual_demo_pregrasp_pose_2026-05-26_2001.json",
+  "grasp_pose": "calibration/results/manual_demo_grasp_pose_2026-05-26_1954.json",
+  "place_pose": "calibration/results/manual_demo_place_pose_latest.json",
+  "place_pose_flange_xyz_m_sdk": [
+    -0.38,
+    0.2258,
+    0.29331
+  ],
+  "post_place_lift_pose": "calibration/results/manual_demo_post_place_lift_pose_latest.json",
+  "post_place_lift_flange_xyz_m_sdk": [
+    -0.34463,
+    0.22206,
+    0.36175
+  ],
+  "gripper_force_grasp": 2.0,
+  "steps": [
+    {
+      "step": "restore_initial_scan_pose_before_pick",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          7.817,
+          -51.497,
+          -10.701,
+          101.596,
+          -9.619,
+          5.546,
+          66.204
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.12293,
+            0.07288,
+            0.42
+          ],
+          "rpy_rad": [
+            1.48496,
+            -0.47838,
+            -0.12284
+          ]
+        },
+        "joint_angles_deg": [
+          7.817,
+          -51.493,
+          -10.697,
+          101.603,
+          -9.618,
+          5.546,
+          66.206
+        ]
+      },
+      "err_deg": 0.006999999999990791
+    },
+    {
+      "step": "move_to_pregrasp",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          -9.793,
+          -6.732,
+          -3.623,
+          94.129,
+          -1.001,
+          -5.892,
+          52.822
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.33709,
+            0.07299,
+            0.32344
+          ],
+          "rpy_rad": [
+            1.5937,
+            -0.87781,
+            -0.14935
+          ]
+        },
+        "joint_angles_deg": [
+          -9.793,
+          -6.735,
+          -3.619,
+          94.129,
+          -1.0,
+          -5.891,
+          52.823
+        ]
+      },
+      "err_deg": 0.0040000000000000036
+    },
+    {
+      "step": "open_gripper_before_grasp",
+      "response": {
+        "status": "ok",
+        "width_m": 0.0539,
+        "force": 1.0
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.3371,
+            0.073,
+            0.32342
+          ],
+          "rpy_rad": [
+            1.59378,
+            -0.87788,
+            -0.14942
+          ]
+        },
+        "joint_angles_deg": [
+          -9.793,
+          -6.732,
+          -3.619,
+          94.129,
+          -1.003,
+          -5.891,
+          52.823
+        ]
+      }
+    },
+    {
+      "step": "move_to_grasp",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          -10.273,
+          4.567,
+          -3.611,
+          91.862,
+          1.179,
+          -8.705,
+          63.101
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.34674,
+            0.06944,
+            0.25322
+          ],
+          "rpy_rad": [
+            1.47999,
+            -1.20841,
+            -0.00855
+          ]
+        },
+        "joint_angles_deg": [
+          -10.272,
+          4.562,
+          -3.619,
+          91.861,
+          1.178,
+          -8.704,
+          63.106
+        ]
+      },
+      "err_deg": 0.008000000000000007
+    },
+    {
+      "step": "close_gripper_at_grasp",
+      "response": {
+        "status": "ok",
+        "width_m": 0.0511,
+        "force": 2.0
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.34678,
+            0.06939,
+            0.2532
+          ],
+          "rpy_rad": [
+            1.47979,
+            -1.20836,
+            -0.00827
+          ]
+        },
+        "joint_angles_deg": [
+          -10.275,
+          4.567,
+          -3.612,
+          91.861,
+          1.181,
+          -8.704,
+          63.099
+        ]
+      }
+    },
+    {
+      "step": "restore_initial_scan_pose_after_grasp",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          7.817,
+          -51.497,
+          -10.701,
+          101.596,
+          -9.619,
+          5.546,
+          66.204
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.12291,
+            0.07289,
+            0.42005
+          ],
+          "rpy_rad": [
+            1.48487,
+            -0.47826,
+            -0.12284
+          ]
+        },
+        "joint_angles_deg": [
+          7.815,
+          -51.494,
+          -10.699,
+          101.596,
+          -9.617,
+          5.547,
+          66.206
+        ]
+      },
+      "err_deg": 0.0030000000000001137
+    },
+    {
+      "step": "move_to_latest_place_pose",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          -9.098,
+          25.179,
+          -41.524,
+          62.236,
+          19.58,
+          -39.345,
+          76.915
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.37999,
+            0.22583,
+            0.29338
+          ],
+          "rpy_rad": [
+            1.70301,
+            -1.19726,
+            -0.2292
+          ]
+        },
+        "joint_angles_deg": [
+          -9.096,
+          25.172,
+          -41.526,
+          62.235,
+          19.58,
+          -39.342,
+          76.904
+        ]
+      },
+      "err_deg": 0.01100000000000989
+    },
+    {
+      "step": "open_gripper_release_at_place",
+      "response": {
+        "status": "ok",
+        "width_m": 0.05917,
+        "force": 1.0
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.38002,
+            0.2258,
+            0.29334
+          ],
+          "rpy_rad": [
+            1.70299,
+            -1.19744,
+            -0.22906
+          ]
+        },
+        "joint_angles_deg": [
+          -9.098,
+          25.179,
+          -41.526,
+          62.233,
+          19.584,
+          -39.345,
+          76.911
+        ]
+      }
+    },
+    {
+      "step": "move_to_latest_post_place_lift_pose",
+      "attempt": 0,
+      "move_j": {
+        "status": "ok",
+        "angles_deg": [
+          -8.231,
+          15.172,
+          -41.549,
+          61.872,
+          16.562,
+          -39.255,
+          77.11
+        ]
+      },
+      "status": {
+        "can0": "UP",
+        "arm_status_code": 0,
+        "arm_status": "normal",
+        "flange": {
+          "xyz_m": [
+            -0.34462,
+            0.22207,
+            0.36181
+          ],
+          "rpy_rad": [
+            1.77113,
+            -1.04821,
+            -0.28749
+          ]
+        },
+        "joint_angles_deg": [
+          -8.231,
+          15.172,
+          -41.553,
+          61.862,
+          16.561,
+          -39.254,
+          77.114
+        ]
+      },
+      "err_deg": 0.00999999999999801
+    }
+  ],
+  "status_before": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.34462,
+        0.22207,
+        0.36178
+      ],
+      "rpy_rad": [
+        1.77107,
+        -1.04823,
+        -0.28737
+      ]
+    },
+    "joint_angles_deg": [
+      -8.231,
+      15.171,
+      -41.551,
+      61.869,
+      16.559,
+      -39.259,
+      77.109
+    ]
+  },
+  "status_after": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.34462,
+        0.22207,
+        0.36181
+      ],
+      "rpy_rad": [
+        1.77113,
+        -1.04821,
+        -0.28749
+      ]
+    },
+    "joint_angles_deg": [
+      -8.231,
+      15.172,
+      -41.553,
+      61.862,
+      16.561,
+      -39.254,
+      77.114
+    ]
+  },
+  "completed": true
+}

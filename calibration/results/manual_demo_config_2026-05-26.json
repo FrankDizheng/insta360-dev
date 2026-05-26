@@ -1,0 +1,10 @@
+{
+  "schema": "manual_demo_config.v1",
+  "updated_at": "2026-05-26T19:57:00",
+  "pick_pose": "calibration/results/manual_demo_grasp_pose_2026-05-26_1954.json",
+  "motion_policy": "Use recorded joint_angles_deg via /move_j. Do not use /move_above or SDK pose IK.",
+  "grasp_policy": {
+    "gripper_force": 2.0,
+    "note": "Use increased close force for the actual bottle grasp. Pass {\"gripper_force\": 2.0} to /grasp."
+  }
+}

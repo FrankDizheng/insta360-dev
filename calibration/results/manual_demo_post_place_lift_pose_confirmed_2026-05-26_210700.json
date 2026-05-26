@@ -1,0 +1,71 @@
+{
+  "schema": "manual_demo_post_place_lift_pose_confirmed.v1",
+  "captured_at": "2026-05-26T21:07:00",
+  "label": "manual_post_place_lift_pose_confirmed",
+  "meaning": "This current robot pose is the lifted/safe pose after bottle placement, recorded by user instruction.",
+  "robot_status": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.34463,
+        0.22206,
+        0.36175
+      ],
+      "rpy_rad": [
+        1.77088,
+        -1.0483,
+        -0.28723
+      ]
+    },
+    "joint_angles_deg": [
+      -8.231,
+      15.172,
+      -41.549,
+      61.872,
+      16.562,
+      -39.255,
+      77.11
+    ]
+  },
+  "joint_angles_deg": [
+    -8.231,
+    15.172,
+    -41.549,
+    61.872,
+    16.562,
+    -39.255,
+    77.11
+  ],
+  "flange_xyz_m_sdk": [
+    -0.34463,
+    0.22206,
+    0.36175
+  ],
+  "flange_rpy_rad_sdk": [
+    1.77088,
+    -1.0483,
+    -0.28723
+  ],
+  "scan_reference": {
+    "scan_q_deg": [
+      7.817,
+      -51.497,
+      -10.701,
+      101.596,
+      -9.619,
+      5.546,
+      66.204
+    ],
+    "scan_flange_xyz_m_approx": [
+      -0.1229,
+      0.07291,
+      0.42006
+    ],
+    "max_q_delta_from_scan_deg": 66.669,
+    "max_xyz_delta_from_scan_m": 0.22172999999999998,
+    "looks_like_scan_pose": false
+  },
+  "note": "Confirmed post-place lift pose recorded from current robot state per user instruction."
+}

@@ -8,7 +8,7 @@ NUM_JOINTS = 7
 # Note: these may be stricter / different from the generic SDK defaults shown in docs.
 JOINT_LIMITS_RAD: list[tuple[float, float]] = [
     (-2.740167, 2.740167),   # J1  -157° ~ 157°
-    (-0.261799, 3.316126),   # J2   -15° ~ 190°
+    (-1.745329, 1.745329),   # J2  -100° ~ 100° (site operational range)
     (-2.792527, 2.792527),   # J3  -160° ~ 160°
     (-1.047198, 2.181662),   # J4   -60° ~ 125°
     (-2.792527, 2.792527),   # J5  -160° ~ 160°
@@ -18,7 +18,7 @@ JOINT_LIMITS_RAD: list[tuple[float, float]] = [
 
 JOINT_LIMITS_DEG: list[tuple[float, float]] = [
     (-157.0, 157.0),    # J1
-    (-15.0, 190.0),     # J2
+    (-100.0, 100.0),    # J2
     (-160.0, 160.0),    # J3
     (-60.0, 125.0),     # J4
     (-160.0, 160.0),    # J5

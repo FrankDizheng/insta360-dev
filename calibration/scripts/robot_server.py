@@ -13,7 +13,7 @@ Start:
 
 API:
     GET  /status
-         → arm_status, flange pose, can0 state
+         → arm_status, flange pose, joint_angles_deg, can0 state
 
     POST /scan
          → captures RGBD, returns:
@@ -30,8 +30,9 @@ API:
     POST /grasp       {"grasp_z_mm": 330, "lift_z_mm": 400}
          → opens gripper, descends to grasp_z (auto-retries on IK fail), closes, lifts
 
-    POST /place       {"xyz_m": [x,y,z], "place_z_mm": 295, "z_safe_mm": 400}
-         → transits above xyz, lowers to place_z, releases, lifts
+    POST /place       {"xyz_m": [x,y,z], "place_z_mm": 295, "z_safe_mm": 400,
+                       "from_current_xy": false}
+         → transits above xyz (unless from_current_xy), lowers to place_z, releases, lifts
 
     POST /home        → move_j to all-zero joints
 
@@ -45,6 +46,7 @@ API:
 import base64
 import logging
 import math
+import os
 import subprocess
 import sys
 import time
@@ -80,6 +82,25 @@ from safe_motion import (
 
 log = logging.getLogger("robot_server")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+ALLOW_SDK_POSE_IK = os.getenv("NERO_ALLOW_SDK_POSE_IK", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
+
+def _reject_sdk_pose_ik(endpoint: str) -> None:
+    """Keep real motion on locally planned move_j targets unless explicitly enabled."""
+    if not ALLOW_SDK_POSE_IK:
+        raise HTTPException(
+            409,
+            (
+                f"{endpoint} is disabled: use local simulation to solve goal_q_deg "
+                "and command /move_j. Set NERO_ALLOW_SDK_POSE_IK=1 only for "
+                "explicit recovery/debug sessions."
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -186,11 +207,17 @@ class MoveAboveRequest(BaseModel):
 class GraspRequest(BaseModel):
     grasp_z_mm: float = 300.0   # absolute Z in base frame — computed on Mac
     lift_z_mm: float = 400.0
+    gripper_force: float | None = None
+
+class GripperRequest(BaseModel):
+    width_m: float
+    force: float = 1.0
 
 class PlaceRequest(BaseModel):
     xyz_m: list[float]          # destination [x, y, z] — computed on Mac
     place_z_mm: float = 295.0
     z_safe_mm: float = 400.0
+    from_current_xy: bool = False  # Plan A: already at P5 standoff; descend in place
 
 class MoveJRequest(BaseModel):
     angles_deg: list[float]     # 7 values
@@ -203,6 +230,7 @@ class MoveJRequest(BaseModel):
 @app.get("/status")
 def get_status():
     flange = None
+    joint_angles_deg = None
     arm_code = -1
     can_state = "unknown"
     try:
@@ -214,6 +242,9 @@ def get_status():
             p = list(fp.msg[:6])
             flange = {"xyz_m": [round(v, 5) for v in p[:3]],
                       "rpy_rad": [round(v, 5) for v in p[3:]]}
+        ja = HW.robot.get_joint_angles()
+        if ja and ja.msg is not None:
+            joint_angles_deg = [round(math.degrees(float(v)), 3) for v in ja.msg[:7]]
         st = HW.robot.get_arm_status()
         arm_code = int(getattr(st.msg, "arm_status", -1)) if st and st.msg else -1
     except Exception as exc:
@@ -226,6 +257,7 @@ def get_status():
         "arm_status_code": arm_code,
         "arm_status": labels.get(arm_code, "unknown"),
         "flange": flange,
+        "joint_angles_deg": joint_angles_deg,
     }
 
 
@@ -284,6 +316,7 @@ def post_scan():
 @app.post("/move_above")
 def post_move_above(req: MoveAboveRequest):
     """Move gripper to standoff above a 3D point computed on Mac."""
+    _reject_sdk_pose_ik("/move_above")
     if len(req.xyz_m) != 3:
         raise HTTPException(400, "xyz_m must have 3 values")
     if req.rpy_rad is not None and len(req.rpy_rad) != 3:
@@ -348,7 +381,8 @@ def post_grasp(req: GraspRequest):
                     continue
                 raise
 
-        HW.effector.move_gripper(width=0.0, force=HW.gripper_force)
+        close_force = float(req.gripper_force) if req.gripper_force is not None else HW.gripper_force
+        HW.effector.move_gripper(width=0.0, force=close_force)
         time.sleep(1.0)
         st = HW.effector.get_gripper_status()
         grip_width = float(st.msg.width)
@@ -362,6 +396,23 @@ def post_grasp(req: GraspRequest):
         raise HTTPException(500, str(exc))
 
 
+@app.post("/gripper")
+def post_gripper(req: GripperRequest):
+    """Open/close gripper only; no arm IK or arm motion."""
+    try:
+        HW.effector.move_gripper(width=req.width_m, force=req.force)
+        time.sleep(0.8)
+        st = HW.effector.get_gripper_status()
+        width = float(st.msg.width)
+        return {
+            "status": "ok",
+            "width_m": round(width, 5),
+            "force": req.force,
+        }
+    except Exception as exc:
+        raise HTTPException(500, str(exc))
+
+
 @app.post("/place")
 def post_place(req: PlaceRequest):
     """Transit to xyz, lower to place_z, release, lift. xyz computed on Mac."""
@@ -371,18 +422,23 @@ def post_place(req: PlaceRequest):
         z_safe_m = req.z_safe_mm / 1000.0
         place_z = req.place_z_mm / 1000.0
 
-        current_rpy = (list(HW.robot.get_tcp_pose().msg[3:6])
-                       if HW.tcp_offset else get_current_pose(HW.robot)[3:6].tolist())
-        above = [req.xyz_m[0], req.xyz_m[1], z_safe_m, *current_rpy]
-        flange_above = HW.robot.get_tcp2flange_pose(above) if HW.tcp_offset else above
-        check_target_safe(flange_above)
-        HW.robot.set_speed_percent(HW.speed_pct)
-        safe_move_to(HW.robot, flange_above, z_safe_m=z_safe_m,
-                     speed_pct=HW.speed_pct, tol_mm=15.0)
+        current = (np.array(HW.robot.get_tcp_pose().msg[:6])
+                   if HW.tcp_offset else get_current_pose(HW.robot))
+        current_rpy = current[3:6].tolist()
 
-        current_rpy = (list(HW.robot.get_tcp_pose().msg[3:6])
-                       if HW.tcp_offset else get_current_pose(HW.robot)[3:6].tolist())
-        place_pose = [req.xyz_m[0], req.xyz_m[1], place_z, *current_rpy]
+        if not req.from_current_xy:
+            above = [req.xyz_m[0], req.xyz_m[1], z_safe_m, *current_rpy]
+            flange_above = HW.robot.get_tcp2flange_pose(above) if HW.tcp_offset else above
+            check_target_safe(flange_above)
+            HW.robot.set_speed_percent(HW.speed_pct)
+            safe_move_to(HW.robot, flange_above, z_safe_m=z_safe_m,
+                         speed_pct=HW.speed_pct, tol_mm=15.0)
+            current = (np.array(HW.robot.get_tcp_pose().msg[:6])
+                       if HW.tcp_offset else get_current_pose(HW.robot))
+            current_rpy = current[3:6].tolist()
+
+        place_xy = current[:2].tolist() if req.from_current_xy else req.xyz_m[:2]
+        place_pose = [place_xy[0], place_xy[1], place_z, *current_rpy]
         flange_p = HW.robot.get_tcp2flange_pose(place_pose) if HW.tcp_offset else place_pose
         check_target_safe(flange_p, z_min_m=0.02)
 

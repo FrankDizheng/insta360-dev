@@ -8,11 +8,19 @@ from .controllers import (
     get_robot_controller,
     read_arm_status_code,
 )
-from .geometry import OFFICIAL_NERO_GEOMETRY, NeroGeometryEnvelope
+from .geometry import (
+    ACTIVE_WORKSPACE_SAFETY,
+    OFFICIAL_NERO_GEOMETRY,
+    NeroGeometryEnvelope,
+    WorkspaceSafetyEnvelope,
+)
 from .planning import (
     PlannerResult,
+    PoseIKResult,
     ReachSample,
     WorkspaceSamplerConfig,
+    plan_relaxed_pose_motion,
+    plan_pose_motion,
     plan_joint_motion,
     planner_result_to_dict,
     sample_reachable_target,
@@ -53,10 +61,13 @@ __all__ = [
     "OrbbecCamera",
     "OFFICIAL_NERO_GEOMETRY",
     "PlannerResult",
+    "PoseIKResult",
     "Position3D",
     "ReachSample",
     "SimNeroController",
     "WorkspaceSamplerConfig",
+    "WorkspaceSafetyEnvelope",
+    "ACTIVE_WORKSPACE_SAFETY",
     "arm_status_label",
     "assert_arm_status_ok",
     "clamp_joints",
@@ -67,6 +78,8 @@ __all__ = [
     "get_camera",
     "get_robot_controller",
     "plan_joint_motion",
+    "plan_pose_motion",
+    "plan_relaxed_pose_motion",
     "planner_result_to_dict",
     "read_arm_status_code",
     "sample_reachable_target",

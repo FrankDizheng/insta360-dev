@@ -1,0 +1,71 @@
+{
+  "schema": "manual_demo_place_pose_confirmed.v1",
+  "captured_at": "2026-05-26T21:04:39",
+  "label": "manual_bottle_place_pose_confirmed",
+  "meaning": "This current robot pose is the bottle placement pose. Previous place records may have captured the initial scan pose by mistake.",
+  "robot_status": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.38,
+        0.2258,
+        0.29331
+      ],
+      "rpy_rad": [
+        1.70304,
+        -1.19758,
+        -0.22911
+      ]
+    },
+    "joint_angles_deg": [
+      -9.098,
+      25.179,
+      -41.524,
+      62.236,
+      19.58,
+      -39.345,
+      76.915
+    ]
+  },
+  "joint_angles_deg": [
+    -9.098,
+    25.179,
+    -41.524,
+    62.236,
+    19.58,
+    -39.345,
+    76.915
+  ],
+  "flange_xyz_m_sdk": [
+    -0.38,
+    0.2258,
+    0.29331
+  ],
+  "flange_rpy_rad_sdk": [
+    1.70304,
+    -1.19758,
+    -0.22911
+  ],
+  "scan_reference": {
+    "scan_q_deg": [
+      7.817,
+      -51.497,
+      -10.701,
+      101.596,
+      -9.619,
+      5.546,
+      66.204
+    ],
+    "scan_flange_xyz_m_approx": [
+      -0.1229,
+      0.07291,
+      0.42006
+    ],
+    "max_q_delta_from_scan_deg": 76.676,
+    "max_xyz_delta_from_scan_m": 0.2571,
+    "looks_like_scan_pose": false
+  },
+  "note": "Confirmed place pose recorded from current robot state per user instruction."
+}

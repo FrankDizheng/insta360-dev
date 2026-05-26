@@ -25,6 +25,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from gripper_align_place import attach_p5_place_target  # noqa: E402
 from top_camera_plane_project import (  # noqa: E402
     DEFAULT_HOMOGRAPHY,
     load_homography,
@@ -270,6 +271,7 @@ def analyze_image(
     *,
     homography_path: Path = DEFAULT_HOMOGRAPHY_PATH,
     support_z_m: float = DEFAULT_SUPPORT_Z_M,
+    include_p5_place_target: bool = False,
 ) -> dict:
     color = cv2.imread(str(image_path))
     if color is None:
@@ -279,7 +281,7 @@ def analyze_image(
     slot_px = detect_empty_slot(color)
     slot_base = slot_pixels_to_base(slot_px, homography, support_z_m=support_z_m)
 
-    return {
+    result = {
         "source_image": str(image_path).replace("\\", "/"),
         "image_shape_hw": [int(color.shape[0]), int(color.shape[1])],
         "homography": str(homography_path).replace("\\", "/"),
@@ -287,6 +289,9 @@ def analyze_image(
         "slot_pixels": slot_px,
         "slot_base": slot_base,
     }
+    if include_p5_place_target:
+        result = attach_p5_place_target(result)
+    return result
 
 
 def main() -> None:
@@ -312,12 +317,18 @@ def main() -> None:
         default=None,
         help="Optional directory to write overlay + result JSON",
     )
+    parser.add_argument(
+        "--include-p5-place-target",
+        action="store_true",
+        help="Attach Plan A P5 contact-aligned place standoff flange target",
+    )
     args = parser.parse_args()
 
     result = analyze_image(
         args.image,
         homography_path=args.homography,
         support_z_m=args.support_z_m,
+        include_p5_place_target=args.include_p5_place_target,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

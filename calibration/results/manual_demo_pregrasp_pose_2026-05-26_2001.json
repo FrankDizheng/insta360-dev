@@ -1,0 +1,71 @@
+{
+  "schema": "manual_demo_pregrasp_pose.v1",
+  "captured_at": "2026-05-26T20:01:12",
+  "label": "manual_pregrasp_bottle_pose",
+  "meaning": "This is the bottle pregrasp/standoff position above the actual grasp pose.",
+  "robot_status": {
+    "can0": "UP",
+    "arm_status_code": 0,
+    "arm_status": "normal",
+    "flange": {
+      "xyz_m": [
+        -0.33709,
+        0.07302,
+        0.32342
+      ],
+      "rpy_rad": [
+        1.59371,
+        -0.87787,
+        -0.14944
+      ]
+    },
+    "joint_angles_deg": [
+      -9.793,
+      -6.732,
+      -3.623,
+      94.129,
+      -1.001,
+      -5.892,
+      52.822
+    ]
+  },
+  "joint_angles_deg": [
+    -9.793,
+    -6.732,
+    -3.623,
+    94.129,
+    -1.001,
+    -5.892,
+    52.822
+  ],
+  "flange_xyz_m_sdk": [
+    -0.33709,
+    0.07302,
+    0.32342
+  ],
+  "flange_rpy_rad_sdk": [
+    1.59371,
+    -0.87787,
+    -0.14944
+  ],
+  "tcp_offset_flange_local_m": [
+    0.005274,
+    -0.017094,
+    0.009175759991568458
+  ],
+  "flange_xyz_m_fk": [
+    -0.33604080916932255,
+    0.07285370771404795,
+    0.3247302238704389
+  ],
+  "tcp_xyz_m_fk_estimated": [
+    -0.32000788728607893,
+    0.07983932184657329,
+    0.33464794006420745
+  ],
+  "tcp_xyz_mm_fk_estimated": [
+    -320.0,
+    79.8,
+    334.6
+  ]
+}

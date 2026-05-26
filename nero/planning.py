@@ -16,7 +16,7 @@ from typing import Iterable, Sequence
 import numpy as np
 
 from nero.geometry import ACTIVE_FRAME_ALIGNMENT, envelope_penalty
-from nero.kinematics import tcp_position
+from nero.kinematics import forward_kinematics, tcp_position
 from nero.types import HOME_ANGLES_DEG, JOINT_LIMITS_RAD, NUM_JOINTS, clamp_joints_rad
 
 
@@ -65,6 +65,21 @@ class PlannerResult:
 
 
 @dataclass
+class PoseIKResult:
+    ok: bool
+    reason: str
+    target_xyz_m: tuple[float, float, float]
+    target_rpy_rad: tuple[float, float, float]
+    start_rad: list[float]
+    goal_rad: list[float]
+    position_error_m: float
+    rotation_error_rad: float
+    cost: float
+    path_rad: list[list[float]] = field(default_factory=list)
+    geometry_details: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
 class ReachSample:
     xyz_m: tuple[float, float, float]
     plan: PlannerResult
@@ -90,6 +105,220 @@ def _target_vec(target_xyz_m: Sequence[float]) -> np.ndarray:
     if len(target_xyz_m) < 3:
         raise ValueError(f"Need xyz target, got {target_xyz_m!r}")
     return np.asarray(target_xyz_m[:3], dtype=np.float64)
+
+
+def rpy_to_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
+    cr, sr = math.cos(roll), math.sin(roll)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    return np.array(
+        [
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ],
+        dtype=np.float64,
+    )
+
+
+def matrix_to_rpy(rotation: np.ndarray) -> list[float]:
+    pitch = math.asin(max(-1.0, min(1.0, -float(rotation[2, 0]))))
+    roll = math.atan2(float(rotation[2, 1]), float(rotation[2, 2]))
+    yaw = math.atan2(float(rotation[1, 0]), float(rotation[0, 0]))
+    return [roll, pitch, yaw]
+
+
+def axis_angle_to_matrix(axis_xyz: Sequence[float], angle_rad: float) -> np.ndarray:
+    axis = np.asarray(axis_xyz[:3], dtype=np.float64)
+    norm = float(np.linalg.norm(axis))
+    if norm < 1e-9:
+        raise ValueError(f"Rotation axis is too small: {axis_xyz!r}")
+    x, y, z = axis / norm
+    c = math.cos(angle_rad)
+    s = math.sin(angle_rad)
+    one_c = 1.0 - c
+    return np.array(
+        [
+            [c + x * x * one_c, x * y * one_c - z * s, x * z * one_c + y * s],
+            [y * x * one_c + z * s, c + y * y * one_c, y * z * one_c - x * s],
+            [z * x * one_c - y * s, z * y * one_c + x * s, c + z * z * one_c],
+        ],
+        dtype=np.float64,
+    )
+
+
+def relaxed_rpy_candidates(
+    nominal_rpy_rad: Sequence[float],
+    *,
+    free_axis: str = "tool_z",
+    sweep_rad: float = math.pi,
+    step_rad: float = math.radians(15.0),
+) -> list[tuple[list[float], float]]:
+    """Generate RPY candidates by rotating the nominal pose around a free axis."""
+    if len(nominal_rpy_rad) < 3:
+        raise ValueError(f"Need rpy target, got {nominal_rpy_rad!r}")
+    if step_rad <= 0.0:
+        raise ValueError("step_rad must be positive")
+
+    nominal_rot = rpy_to_matrix(*[float(v) for v in nominal_rpy_rad[:3]])
+    axis_map = {
+        "tool_x": np.array([1.0, 0.0, 0.0], dtype=np.float64),
+        "tool_y": np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        "tool_z": np.array([0.0, 0.0, 1.0], dtype=np.float64),
+        "world_x": np.array([1.0, 0.0, 0.0], dtype=np.float64),
+        "world_y": np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        "world_z": np.array([0.0, 0.0, 1.0], dtype=np.float64),
+    }
+    if free_axis not in axis_map:
+        raise ValueError(f"Unsupported free_axis {free_axis!r}")
+
+    max_steps = max(0, int(math.floor(abs(float(sweep_rad)) / float(step_rad))))
+    offsets = [0.0]
+    for idx in range(1, max_steps + 1):
+        offset = min(abs(float(sweep_rad)), idx * float(step_rad))
+        offsets.extend([offset, -offset])
+
+    candidates: list[tuple[list[float], float]] = []
+    seen: set[tuple[int, ...]] = set()
+    for offset in offsets:
+        axis = axis_map[free_axis]
+        if free_axis.startswith("tool_"):
+            candidate_rot = nominal_rot @ axis_angle_to_matrix(axis, offset)
+        else:
+            candidate_rot = axis_angle_to_matrix(axis, offset) @ nominal_rot
+        rpy = matrix_to_rpy(candidate_rot)
+        key = tuple(int(round(v * 100000.0)) for v in rpy)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append((rpy, float(offset)))
+    return candidates
+
+
+def rotation_vector_from_matrix(rot: np.ndarray) -> np.ndarray:
+    trace = float(np.trace(rot))
+    cos_theta = max(-1.0, min(1.0, (trace - 1.0) * 0.5))
+    theta = math.acos(cos_theta)
+    if theta < 1e-9:
+        return np.zeros(3, dtype=np.float64)
+    if abs(math.pi - theta) < 1e-5:
+        axis = np.array(
+            [
+                math.sqrt(max(0.0, (float(rot[0, 0]) + 1.0) * 0.5)),
+                math.sqrt(max(0.0, (float(rot[1, 1]) + 1.0) * 0.5)),
+                math.sqrt(max(0.0, (float(rot[2, 2]) + 1.0) * 0.5)),
+            ],
+            dtype=np.float64,
+        )
+        norm = float(np.linalg.norm(axis))
+        return np.zeros(3, dtype=np.float64) if norm < 1e-9 else axis / norm * theta
+    return theta / (2.0 * math.sin(theta)) * np.array(
+        [rot[2, 1] - rot[1, 2], rot[0, 2] - rot[2, 0], rot[1, 0] - rot[0, 1]],
+        dtype=np.float64,
+    )
+
+
+def _pose_error_vector(
+    joint_angles_rad: Sequence[float],
+    target_xyz_m: np.ndarray,
+    target_rot: np.ndarray,
+    *,
+    rotation_weight_m_per_rad: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    fk = forward_kinematics(joint_angles_rad, clamp=False)
+    flange_t = fk["flange_T"]
+    position_error = target_xyz_m - flange_t[:3, 3]
+    rotation_error = rotation_vector_from_matrix(target_rot @ flange_t[:3, :3].T)
+    return (
+        np.concatenate([position_error, rotation_weight_m_per_rad * rotation_error]),
+        position_error,
+        rotation_error,
+    )
+
+
+def numerical_pose_jacobian(
+    joint_angles_rad: Sequence[float],
+    target_xyz_m: np.ndarray,
+    target_rot: np.ndarray,
+    *,
+    rotation_weight_m_per_rad: float,
+    eps: float = 1e-4,
+) -> np.ndarray:
+    q = _normalize_joint_vector(joint_angles_rad)
+    jac = np.zeros((6, NUM_JOINTS), dtype=np.float64)
+    for idx in range(NUM_JOINTS):
+        qp = q.copy()
+        qm = q.copy()
+        qp[idx] += eps
+        qm[idx] -= eps
+        ep = _pose_error_vector(
+            qp.tolist(),
+            target_xyz_m,
+            target_rot,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+        )[0]
+        em = _pose_error_vector(
+            qm.tolist(),
+            target_xyz_m,
+            target_rot,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+        )[0]
+        jac[:, idx] = (ep - em) / (2.0 * eps)
+    return jac
+
+
+def solve_ik_pose(
+    target_xyz_m: Sequence[float],
+    target_rpy_rad: Sequence[float],
+    initial_guess_rad: Sequence[float],
+    *,
+    max_iters: int = 260,
+    damping: float = 0.035,
+    position_tolerance_m: float = 0.004,
+    rotation_tolerance_rad: float = 0.08,
+    max_step_rad: float = DEFAULT_MAX_STEP_RAD,
+    rotation_weight_m_per_rad: float = 0.12,
+) -> tuple[list[float], float, float]:
+    """Solve 6D SDK-flange pose IK against the local URDF model."""
+    target_xyz = _target_vec(target_xyz_m)
+    if len(target_rpy_rad) < 3:
+        raise ValueError(f"Need rpy target, got {target_rpy_rad!r}")
+    target_rot = rpy_to_matrix(*[float(v) for v in target_rpy_rad[:3]])
+    q = _normalize_joint_vector(initial_guess_rad)
+    best_q = q.copy()
+    best_pos_err = float("inf")
+    best_rot_err = float("inf")
+
+    for _ in range(max_iters):
+        error_vec, position_error, rotation_error = _pose_error_vector(
+            q.tolist(),
+            target_xyz,
+            target_rot,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+        )
+        pos_err = float(np.linalg.norm(position_error))
+        rot_err = float(np.linalg.norm(rotation_error))
+        if pos_err + 0.01 * rot_err < best_pos_err + 0.01 * best_rot_err:
+            best_q = q.copy()
+            best_pos_err = pos_err
+            best_rot_err = rot_err
+        if pos_err <= position_tolerance_m and rot_err <= rotation_tolerance_rad:
+            break
+
+        jac = numerical_pose_jacobian(
+            q.tolist(),
+            target_xyz,
+            target_rot,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+        )
+        jjt = jac @ jac.T + (damping**2) * np.eye(6, dtype=np.float64)
+        dq = -jac.T @ np.linalg.solve(jjt, error_vec)
+        max_delta = float(np.max(np.abs(dq)))
+        if max_delta > max_step_rad:
+            dq = dq / max_delta * max_step_rad
+        q = _normalize_joint_vector((q + 0.65 * dq).tolist())
+
+    return best_q.tolist(), best_pos_err, best_rot_err
 
 
 def numerical_position_jacobian(
@@ -354,6 +583,157 @@ def plan_joint_motion(
         waypoint_targets_xyz_m=[tuple(float(v) for v in target)],
         stage_reasons=["ok" if best_err <= tolerance_m else "ik_tolerance_not_met"],
     )
+
+
+def plan_pose_motion(
+    target_xyz_m: Sequence[float],
+    target_rpy_rad: Sequence[float],
+    start_rad: Sequence[float],
+    *,
+    seed_candidates_rad: Iterable[Sequence[float]] | None = None,
+    position_tolerance_m: float = 0.004,
+    rotation_tolerance_rad: float = 0.08,
+    max_ik_iters: int = 260,
+    ik_damping: float = 0.035,
+    max_step_rad: float = DEFAULT_MAX_STEP_RAD,
+    rotation_weight_m_per_rad: float = 0.12,
+    enable_geometry_cost: bool = True,
+    cost_stride: int = 1,
+) -> PoseIKResult:
+    """Plan a joint path to an SDK-flange XYZ+RPY target pose."""
+    target_xyz = _target_vec(target_xyz_m)
+    if len(target_rpy_rad) < 3:
+        raise ValueError(f"Need rpy target, got {target_rpy_rad!r}")
+    target_rpy = tuple(float(v) for v in target_rpy_rad[:3])
+    start = _normalize_joint_vector(start_rad).tolist()
+    seeds = list(seed_candidates_rad or default_seed_bank(start))
+
+    best_goal = start
+    best_pos_err = float("inf")
+    best_rot_err = float("inf")
+    best_cost = float("inf")
+    best_path: list[list[float]] = []
+    best_details: dict[str, float] = {}
+
+    for seed in seeds:
+        candidate_goal, pos_err, rot_err = solve_ik_pose(
+            target_xyz,
+            target_rpy,
+            seed,
+            max_iters=max_ik_iters,
+            damping=ik_damping,
+            position_tolerance_m=position_tolerance_m,
+            rotation_tolerance_rad=rotation_tolerance_rad,
+            max_step_rad=max_step_rad,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+        )
+        candidate_path = interpolate_joint_path(start, candidate_goal, max_step_rad=max_step_rad)
+        candidate_cost = joint_path_cost(
+            candidate_path,
+            enable_geometry_cost=enable_geometry_cost,
+            cost_stride=cost_stride,
+        )
+        geometry_penalty, geometry_details = envelope_penalty(candidate_goal)
+        score = pos_err + 0.01 * rot_err + 0.001 * candidate_cost + 0.001 * geometry_penalty
+        best_score = best_pos_err + 0.01 * best_rot_err + 0.001 * best_cost
+        if score < best_score:
+            best_goal = candidate_goal
+            best_pos_err = pos_err
+            best_rot_err = rot_err
+            best_cost = candidate_cost
+            best_path = candidate_path
+            best_details = geometry_details
+
+    ok = best_pos_err <= position_tolerance_m and best_rot_err <= rotation_tolerance_rad
+    return PoseIKResult(
+        ok=ok,
+        reason="ok" if ok else "pose_ik_tolerance_not_met",
+        target_xyz_m=tuple(float(v) for v in target_xyz),
+        target_rpy_rad=target_rpy,
+        start_rad=start,
+        goal_rad=best_goal,
+        position_error_m=best_pos_err,
+        rotation_error_rad=best_rot_err,
+        cost=best_cost,
+        path_rad=best_path,
+        geometry_details=best_details,
+    )
+
+
+def _joint_limit_margin_rad(joint_angles_rad: Sequence[float]) -> float:
+    margins = []
+    for joint_idx, value in enumerate(joint_angles_rad[:NUM_JOINTS]):
+        lo, hi = JOINT_LIMITS_RAD[joint_idx]
+        margins.append(min(float(value) - lo, hi - float(value)))
+    return min(margins) if margins else float("-inf")
+
+
+def plan_relaxed_pose_motion(
+    target_xyz_m: Sequence[float],
+    nominal_rpy_rad: Sequence[float],
+    start_rad: Sequence[float],
+    *,
+    free_axis: str = "tool_z",
+    sweep_rad: float = math.pi,
+    step_rad: float = math.radians(15.0),
+    seed_candidates_rad: Iterable[Sequence[float]] | None = None,
+    position_tolerance_m: float = 0.004,
+    rotation_tolerance_rad: float = 0.08,
+    max_ik_iters: int = 260,
+    ik_damping: float = 0.035,
+    max_step_rad: float = DEFAULT_MAX_STEP_RAD,
+    rotation_weight_m_per_rad: float = 0.12,
+    enable_geometry_cost: bool = True,
+    cost_stride: int = 1,
+) -> PoseIKResult:
+    """Plan to XYZ while allowing one nominal-pose rotation axis to vary."""
+    candidates = relaxed_rpy_candidates(
+        nominal_rpy_rad,
+        free_axis=free_axis,
+        sweep_rad=sweep_rad,
+        step_rad=step_rad,
+    )
+    seeds = list(seed_candidates_rad or default_seed_bank(start_rad))
+    best: PoseIKResult | None = None
+    best_score = float("inf")
+
+    for rpy, offset_rad in candidates:
+        result = plan_pose_motion(
+            target_xyz_m,
+            rpy,
+            start_rad,
+            seed_candidates_rad=seeds,
+            position_tolerance_m=position_tolerance_m,
+            rotation_tolerance_rad=rotation_tolerance_rad,
+            max_ik_iters=max_ik_iters,
+            ik_damping=ik_damping,
+            max_step_rad=max_step_rad,
+            rotation_weight_m_per_rad=rotation_weight_m_per_rad,
+            enable_geometry_cost=enable_geometry_cost,
+            cost_stride=cost_stride,
+        )
+        margin_rad = _joint_limit_margin_rad(result.goal_rad)
+        if result.ok:
+            score = result.cost - 0.2 * margin_rad
+        else:
+            score = 1000.0 + result.position_error_m + 0.01 * result.rotation_error_rad + 0.001 * result.cost
+        if score < best_score:
+            best = result
+            best_score = score
+            best.geometry_details = dict(result.geometry_details)
+            best.geometry_details.update(
+                {
+                    "relaxed_free_axis": free_axis,
+                    "relaxed_axis_offset_rad": offset_rad,
+                    "relaxed_axis_offset_deg": math.degrees(offset_rad),
+                    "joint_limit_margin_rad": margin_rad,
+                    "relaxed_candidate_count": float(len(candidates)),
+                }
+            )
+
+    if best is None:
+        raise RuntimeError("No relaxed pose candidates were generated")
+    return best
 
 
 def _planner_seed_bank(

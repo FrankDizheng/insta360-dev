@@ -31,6 +31,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from fixed_camera_slot_detect import analyze_image  # noqa: E402
+from gripper_align_place import load_p5_place_standoff_target  # noqa: E402
 from nero import Position3D, get_robot_controller  # noqa: E402
 from nero.kinematics import forward_kinematics, tcp_position  # noqa: E402
 from nero.planning import deg_to_rad, plan_joint_motion, plan_tcp_motion, rad_to_deg  # noqa: E402
@@ -78,14 +79,22 @@ def _load_pick_xyz(exchange_path: Path) -> list[float]:
     raise ValueError(f"target.xyz_m missing in {exchange_path}")
 
 
-def _slot_targets(slot_analysis: dict) -> dict[str, list[float]]:
+def _slot_targets(slot_analysis: dict, *, use_p5_place_standoff: bool = True) -> dict[str, list[float]]:
     slot_xyz = list(slot_analysis["slot_base"]["center_base_xyz_m"])
     slot_surface_z = float(slot_xyz[2])
     place_xyz = [float(slot_xyz[0]), float(slot_xyz[1]), slot_surface_z + PLACE_Z_OFFSET_M]
+    if use_p5_place_standoff:
+        p5 = load_p5_place_standoff_target()
+        place_standoff_xyz = list(p5["flange_xyz_m"])
+        place_standoff_method = p5["method"]
+    else:
+        place_standoff_xyz = [place_xyz[0], place_xyz[1], SAFE_STANDOFF_Z_M]
+        place_standoff_method = "homography_slot_center_xy"
     return {
         "slot_surface_xyz_m": slot_xyz,
         "place_xyz_m": place_xyz,
-        "place_standoff_xyz_m": [place_xyz[0], place_xyz[1], SAFE_STANDOFF_Z_M],
+        "place_standoff_xyz_m": place_standoff_xyz,
+        "place_standoff_method": place_standoff_method,
         "pick_standoff_xyz_m": None,
     }
 

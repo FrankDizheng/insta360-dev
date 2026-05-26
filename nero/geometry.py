@@ -61,6 +61,24 @@ OFFICIAL_FRAME_ALIGNMENT = StepFrameAlignment()
 
 
 @dataclass(frozen=True)
+class WorkspaceSafetyEnvelope:
+    """Site-specific static workspace limits in the robot base frame."""
+
+    # The wall on the robot side reached by decreasing J2 is about 41 cm from
+    # the zero/base line. In the current URDF/base convention, decreasing J2 at
+    # zero pose moves the arm toward +X, so all geometry should stay at
+    # x <= wall_x_max_m. If a site uses the opposite base sign, set wall_x_min_m
+    # instead and leave wall_x_max_m as None.
+    wall_x_max_m: float | None = 0.41
+    wall_x_min_m: float | None = None
+    wall_soft_margin_m: float = 0.03
+    source_note: str = "Site observation: J2-decrease side wall is ~0.41 m from robot zero."
+
+
+ACTIVE_WORKSPACE_SAFETY = WorkspaceSafetyEnvelope()
+
+
+@dataclass(frozen=True)
 class CapsulePrimitive:
     start_xyz_m: tuple[float, float, float]
     end_xyz_m: tuple[float, float, float]
@@ -318,8 +336,9 @@ def envelope_penalty(
     *,
     table_z_m: float | None = None,
     geometry: NeroGeometryEnvelope = ACTIVE_NERO_GEOMETRY,
+    workspace: WorkspaceSafetyEnvelope = ACTIVE_WORKSPACE_SAFETY,
 ) -> tuple[float, dict[str, float]]:
-    """Compute a soft safety penalty from table clearance and self-nearness."""
+    """Compute a soft safety penalty from table, wall, and self-nearness."""
     effective_table_z = ACTIVE_FRAME_ALIGNMENT.table_z_m if table_z_m is None else float(table_z_m)
     fk = forward_kinematics(joint_angles_rad)
     capsules = link_capsule_primitives(joint_angles_rad, geometry=geometry)
@@ -339,6 +358,46 @@ def envelope_penalty(
         if clearance < 0.0:
             table_penalty += abs(clearance) * 120.0
 
+    wall_penalty = 0.0
+    min_wall_clearance = float("inf")
+    soft_margin = float(workspace.wall_soft_margin_m)
+    wall_x_max = None if workspace.wall_x_max_m is None else float(workspace.wall_x_max_m)
+    wall_x_min = None if workspace.wall_x_min_m is None else float(workspace.wall_x_min_m)
+
+    if wall_x_max is not None:
+        for cap in capsules:
+            clearance = wall_x_max - max(cap.start_xyz_m[0], cap.end_xyz_m[0]) - cap.radius_m
+            min_wall_clearance = min(min_wall_clearance, clearance)
+            if clearance < 0.0:
+                wall_penalty += abs(clearance) * 100.0
+            elif clearance < soft_margin:
+                wall_penalty += (soft_margin - clearance) * 10.0
+        for box in boxes:
+            corners = box_corners_world(box)
+            clearance = float(wall_x_max - np.max(corners[:, 0]))
+            min_wall_clearance = min(min_wall_clearance, clearance)
+            if clearance < 0.0:
+                wall_penalty += abs(clearance) * 140.0
+            elif clearance < soft_margin:
+                wall_penalty += (soft_margin - clearance) * 14.0
+
+    if wall_x_min is not None:
+        for cap in capsules:
+            clearance = min(cap.start_xyz_m[0], cap.end_xyz_m[0]) - wall_x_min - cap.radius_m
+            min_wall_clearance = min(min_wall_clearance, clearance)
+            if clearance < 0.0:
+                wall_penalty += abs(clearance) * 100.0
+            elif clearance < soft_margin:
+                wall_penalty += (soft_margin - clearance) * 10.0
+        for box in boxes:
+            corners = box_corners_world(box)
+            clearance = float(np.min(corners[:, 0]) - wall_x_min)
+            min_wall_clearance = min(min_wall_clearance, clearance)
+            if clearance < 0.0:
+                wall_penalty += abs(clearance) * 140.0
+            elif clearance < soft_margin:
+                wall_penalty += (soft_margin - clearance) * 14.0
+
     self_penalty = 0.0
     min_self_gap = float("inf")
     for idx, cap_a in enumerate(capsules):
@@ -355,12 +414,16 @@ def envelope_penalty(
                 self_penalty += max(0.0, 0.02 - gap) * 12.0
 
     return (
-        table_penalty + self_penalty,
+        table_penalty + wall_penalty + self_penalty,
         {
             "table_penalty": table_penalty,
+            "wall_penalty": wall_penalty,
             "self_penalty": self_penalty,
             "table_z_m": effective_table_z,
+            "wall_x_max_m": float("nan") if wall_x_max is None else wall_x_max,
+            "wall_x_min_m": float("nan") if wall_x_min is None else wall_x_min,
             "min_table_clearance_m": min_clearance,
+            "min_wall_clearance_m": min_wall_clearance,
             "min_self_gap_m": min_self_gap,
         },
     )
